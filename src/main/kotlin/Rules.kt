@@ -303,7 +303,40 @@ class Position {
       val j = m.to and 15
       board[i * 16 + j] = 0
     }
+    side *= -1
     return u
+  }
+  fun undoMove(m: Move, u: UndoMove) {
+    board[m.from] = u.piece_from
+    board[m.to] = u.piece_to
+    castle = u.castle
+    jump = u.jump
+    if ((m.flags and CASTLING) != 0) {
+      when (m.to) {
+        0x02 -> {
+          board[0x03] = 0
+          board[0x00] = ROOK
+        }
+        0x06 -> {
+          board[0x05] = 0
+          board[0x07] = ROOK
+        }
+        0x72 -> {
+          board[0x03] = 0
+          board[0x70] = -ROOK
+        }
+        0x76 -> {
+          board[0x75] = 0
+          board[0x77] = -ROOK
+        }
+      }
+    }
+    if ((m.flags and EN_PASSANT) != 0) {
+      val i = m.from shr 4
+      val j = m.to and 15
+      board[i * 16 + j] = side * PAWN
+    }
+    side *= -1
   }
 }
 
