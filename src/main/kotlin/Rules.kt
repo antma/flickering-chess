@@ -62,20 +62,20 @@ class Position {
     }
     board[0] = ROOK
     board[7] = ROOK
-    board[0+64*7] = -ROOK
-    board[7+64*7] = -ROOK
+    board[0x70] = -ROOK
+    board[0x77] = -ROOK
     board[1] = KNIGHT
     board[6] = KNIGHT
-    board[1+64*7] = -KNIGHT
-    board[6+64*7] = -KNIGHT
+    board[0x71] = -KNIGHT
+    board[0x76] = -KNIGHT
     board[2] = BISHOP
     board[5] = BISHOP
-    board[2+64*7] = -BISHOP
-    board[5+64*7] = -BISHOP
+    board[0x72] = -BISHOP
+    board[0x75] = -BISHOP
     board[3] = QUEEN
-    board[3+64*7] = -QUEEN
+    board[0x73] = -QUEEN
     board[4] = KING
-    board[4+64*7] = -KING
+    board[0x74] = -KING
   }
   fun cell(x: Int) = if (inside(x)) 0 else board[x]
   fun role(x: Int): Int {

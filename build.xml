@@ -1,4 +1,4 @@
-<project name="Flickering Chess" default="test">
+<project name="Flickering Chess" default="compile">
   <property name="java.sdk" value="1.8"/>
   <property name="build.dir" value="build"/>
   <property name="main.src.dir" value="src/main/kotlin"/>
@@ -36,7 +36,7 @@
           <pathelement location="${junit.jar}"/>
         </classpath>
         <formatter type="plain" usefile="false" />
-        <test name="PrimeTableTest"/>
+        <test name="RulesTest"/>
     </junit>
   </target>
 
