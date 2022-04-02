@@ -53,6 +53,8 @@ class Position {
   var side = 1
   var castle = 15
   var jump = -1
+  var wk = 0x04
+  var bk = 0x74
   init {
     for (i in 0 .. 7) {
       board[i + 16] = PAWN
@@ -266,6 +268,8 @@ class Position {
   }
   fun doMove(m: Move): UndoMove {
     val p = board[m.from]
+    if (p == KING) wk = m.to
+    else if (p == -KING) bk = m.to
     val u = UndoMove(p, board[m.to], castle, jump)
     board[m.from] = 0
     board[m.to] = if ((m.flags and PROMOTION) != 0) p.sign * (m.flags and 7) else p
@@ -307,6 +311,8 @@ class Position {
     return u
   }
   fun undoMove(m: Move, u: UndoMove) {
+    if (u.piece_from == KING) wk = m.from
+    else if (u.piece_from == -KING) bk = m.from
     board[m.from] = u.piece_from
     board[m.to] = u.piece_to
     castle = u.castle
