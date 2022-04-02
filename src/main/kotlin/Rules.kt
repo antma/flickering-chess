@@ -28,7 +28,24 @@ const val CASTLING = 32
 const val EN_PASSANT = 64
 const val PAWN_JUMP = 128
 
-class Move(val from: Int, val to: Int, val flags: Int)
+class Move(val from: Int, val to: Int, val flags: Int) {
+  fun san(): String =
+    StringBuilder(5).apply {
+      append((((from and 15) + 65)).toChar())
+      append((((from shr 4) + 49)).toChar())
+      append((((to and 15) + 65)).toChar())
+      append((((from shr 4) + 49)).toChar())
+      if ((flags and PROMOTION) != 0) {
+        append(when (flags and 7) {
+          KNIGHT -> 'n'
+          BISHOP -> 'b'
+          ROOK -> 'r'
+          QUEEN -> 'q'
+          else -> '?'
+        })
+      }
+    }.toString()
+}
 class UndoMove(val piece_from: Int, val piece_to: Int, val castle: Int, val jump: Int)
 
 class Position {
@@ -260,6 +277,26 @@ class Position {
       0x70 -> castle = castle and 11
       0x74 -> castle = castle and 3
       0x77 -> castle = castle and 7
+    }
+    if ((m.flags and CASTLING) != 0) {
+      when (m.to) {
+        0x02 -> {
+          board[0x00] = 0
+          board[0x03] = ROOK
+        }
+        0x06 -> {
+          board[0x07] = 0
+          board[0x05] = ROOK
+        }
+        0x72 -> {
+          board[0x00] = 0
+          board[0x73] = -ROOK
+        }
+        0x76 -> {
+          board[0x77] = 0
+          board[0x75] = -ROOK
+        }
+      }
     }
     if ((m.flags and EN_PASSANT) != 0) {
       val i = m.from shr 4
