@@ -1,4 +1,6 @@
 package com.github.antma.flickering_chess
+import kotlin.math.abs
+import kotlin.math.sign
 
 const val PAWN = 1
 const val KNIGHT = 2
@@ -15,7 +17,7 @@ private val white_pawn_captures = intArrayOf(15, 17)
 private val black_pawn_captures = intArrayOf(-15, -17)
 
 private fun isFlickeringPiece(x: Int): Boolean {
-  val p = kotlin.math.abs(x)
+  val p = abs(x)
   return p == ROOK || p == KNIGHT || p == BISHOP
 }
 private fun inside(x: Int) = (x and 0x88) == 0
@@ -27,6 +29,7 @@ const val EN_PASSANT = 64
 const val PAWN_JUMP = 128
 
 class Move(val from: Int, val to: Int, val flags: Int)
+class UndoMove(val piece_from: Int, val piece_to: Int, val castle: Int, val jump: Int)
 
 class Position {
   val board = IntArray(128)
@@ -121,7 +124,7 @@ class Position {
       val m = Move(x, x + 32 * side, PAWN_JUMP)
       if (op(m)) return m
     }
-    if (jump >= 0 && i == forth_rank && kotlin.math.abs(j - jump) == 1) {
+    if (jump >= 0 && i == forth_rank && abs(j - jump) == 1) {
       val m = Move(x, i * 16 + 16 * side + jump, CAPTURE + EN_PASSANT)
       if (op(m)) return m
     }
@@ -160,13 +163,13 @@ class Position {
     for (delta in rook_moves) {
       val q = go(x, delta)
       if (s * q <= 0) continue
-      val w = kotlin.math.abs(q)
+      val w = abs(q)
       if (w == ROOK || w == QUEEN || w == KING) return true
     }
     for (delta in bishop_moves) {
       val q = go(x, delta)
       if (s * q <= 0) continue
-      val w = kotlin.math.abs(q)
+      val w = abs(q)
       if (w == BISHOP || w == QUEEN || w == KING) return true
     }
     for (delta in knight_moves) {
@@ -243,6 +246,27 @@ class Position {
       }
     }
     return null
+  }
+  fun doMove(m: Move): UndoMove {
+    val p = board[m.from]
+    val u = UndoMove(p, board[m.to], castle, jump)
+    board[m.from] = 0
+    board[m.to] = if ((m.flags and PROMOTION) != 0) p.sign * (m.flags and 7) else p
+    jump = if ((m.flags and PAWN_JUMP) != 0) (m.from and 15) else -1
+    when (m.from) {
+      0x00 -> castle = castle and 14
+      0x04 -> castle = castle and 12
+      0x07 -> castle = castle and 13
+      0x70 -> castle = castle and 11
+      0x74 -> castle = castle and 3
+      0x77 -> castle = castle and 7
+    }
+    if ((m.flags and EN_PASSANT) != 0) {
+      val i = m.from shr 4
+      val j = m.to and 15
+      board[i * 16 + j] = 0
+    }
+    return u
   }
 }
 
