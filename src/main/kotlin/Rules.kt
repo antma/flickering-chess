@@ -338,5 +338,12 @@ class Position {
     }
     side *= -1
   }
+  fun findPiece(p: Int): Int {
+    for (i in (0 until 8 * 16).step(16))
+      for (j in i until (i + 8))
+        if (board[j] == p)
+          return j
+    return -1
+  }
 }
 
