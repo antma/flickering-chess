@@ -31,10 +31,10 @@ const val PAWN_JUMP = 128
 class Move(val from: Int, val to: Int, val flags: Int) {
   fun san(): String =
     StringBuilder(5).apply {
-      append((((from and 15) + 65)).toChar())
+      append((((from and 15) + 97)).toChar())
       append((((from shr 4) + 49)).toChar())
-      append((((to and 15) + 65)).toChar())
-      append((((from shr 4) + 49)).toChar())
+      append((((to and 15) + 97)).toChar())
+      append((((to shr 4) + 49)).toChar())
       if ((flags and PROMOTION) != 0) {
         append(when (flags and 7) {
           KNIGHT -> 'n'
@@ -350,6 +350,14 @@ class Position {
         if (board[j] == p)
           return j
     return -1
+  }
+  fun doSANMove(san: String): UndoMove? {
+    val m = enumerateMoves {
+      //System.err.println(it.san())
+      it.san() == san
+    }
+    if (m == null) return null
+    return doMove(m)
   }
 }
 
