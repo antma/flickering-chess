@@ -28,6 +28,8 @@ const val CASTLING = 32
 const val EN_PASSANT = 64
 const val PAWN_JUMP = 128
 
+private val tbl_material_score_delta = intArrayOf(0, 100, 300, 300, 500, 1000)
+
 class Move(val from: Int, val to: Int, val flags: Int) {
   fun san(): String =
     StringBuilder(5).apply {
@@ -46,7 +48,7 @@ class Move(val from: Int, val to: Int, val flags: Int) {
       }
     }.toString()
 }
-class UndoMove(val piece_from: Int, val piece_to: Int, val castle: Int, val jump: Int)
+class UndoMove(val piece_from: Int, val piece_to: Int, val castle: Int, val jump: Int, val material_score: Int)
 
 class Position {
   val board = IntArray(128)
@@ -55,6 +57,7 @@ class Position {
   var jump = -1
   var wk = 0x04
   var bk = 0x74
+  var material_score = 0
   init {
     for (i in 0 .. 7) {
       board[i + 16] = PAWN
@@ -270,7 +273,7 @@ class Position {
     val p = board[m.from]
     if (p == KING) wk = m.to
     else if (p == -KING) bk = m.to
-    val u = UndoMove(p, board[m.to], castle, jump)
+    val u = UndoMove(p, board[m.to], castle, jump, material_score)
     board[m.from] = 0
     board[m.to] = if ((m.flags and PROMOTION) != 0) p.sign * (m.flags and 7) else p
     jump = if ((m.flags and PAWN_JUMP) != 0) (m.from and 15) else -1
@@ -306,6 +309,14 @@ class Position {
       val i = m.from shr 4
       val j = m.to and 15
       board[i * 16 + j] = 0
+      material_score += side * tbl_material_score_delta[PAWN]
+    } else {
+      if ((m.flags and PROMOTION) != 0) {
+        material_score += side * (tbl_material_score_delta[m.flags and 7] - tbl_material_score_delta[PAWN])
+      }
+      if (u.piece_to != 0) {
+        material_score += side * tbl_material_score_delta[abs(u.piece_to)]
+      }
     }
     side *= -1
     return u
@@ -317,6 +328,7 @@ class Position {
     board[m.to] = u.piece_to
     castle = u.castle
     jump = u.jump
+    material_score = u.material_score
     if ((m.flags and CASTLING) != 0) {
       when (m.to) {
         0x02 -> {
