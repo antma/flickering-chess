@@ -294,6 +294,7 @@ class Position {
     return null
   }
   fun isLegal(): Boolean = if (side < 0) !isAttacked(wk, -1) else !isAttacked(bk, 1)
+  fun isCheck(): Boolean = if (side > 0) !isAttacked(wk, -1) else !isAttacked(bk, 1)
   fun doMove(m: Move): UndoMove {
     val p = board[m.from]
     if (p == KING) wk = m.to
@@ -439,4 +440,3 @@ class Position {
     return m != null
   }
 }
-
