@@ -269,6 +269,7 @@ class Position {
     }
     return null
   }
+  fun isLegal(): Boolean = if (side < 0) !isAttacked(wk, -1) else !isAttacked(bk, 1)
   fun doMove(m: Move): UndoMove {
     val p = board[m.from]
     if (p == KING) wk = m.to
@@ -363,13 +364,18 @@ class Position {
           return j
     return -1
   }
-  fun doSANMove(san: String): UndoMove? {
+  fun doSANMove(san: String): Pair<Move, UndoMove>? {
     val m = enumerateMoves {
       //System.err.println(it.san())
       it.san() == san
     }
     if (m == null) return null
-    return doMove(m)
+    val u = doMove(m)
+    if (!isLegal()) {
+      undoMove(m, u)
+      return null
+    }
+    return m to u
   }
 }
 
