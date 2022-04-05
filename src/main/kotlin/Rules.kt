@@ -30,6 +30,14 @@ const val PAWN_JUMP = 128
 
 private val tbl_material_score_delta = intArrayOf(0, 100, 300, 300, 500, 1000)
 
+object Zobrist {
+  val a = LongArray(128 * 13 + 16 + 8 + 1)
+  init {
+    val rnd = kotlin.random.Random(239)
+    for (i in a.indices) a[i] = rnd.nextLong()
+  }
+}
+
 class Move(val from: Int, val to: Int, val flags: Int) {
   fun san(): String =
     StringBuilder(5).apply {
@@ -48,7 +56,7 @@ class Move(val from: Int, val to: Int, val flags: Int) {
       }
     }.toString()
 }
-class UndoMove(val piece_from: Int, val piece_to: Int, val castle: Int, val jump: Int, val material_score: Int)
+class UndoMove(val piece_from: Int, val piece_to: Int, val castle: Int, val jump: Int, val material_score: Int, val hc: Long)
 
 class Position {
   val board = IntArray(128)
@@ -58,6 +66,13 @@ class Position {
   var wk = 0x04
   var bk = 0x74
   var material_score = 0
+  private var hc = 0L
+  private fun hcUpdate(k: Int) {
+    val p = board[k]
+    if (p != 0) {
+      hc = hc xor Zobrist.a[(KING + p) * 128 + k]
+    }
+  }
   init {
     for (i in 0 .. 7) {
       board[i + 16] = PAWN
@@ -79,6 +94,15 @@ class Position {
     board[0x73] = -QUEEN
     board[4] = KING
     board[0x74] = -KING
+    for (i in listOf(0, 1, 6, 7)) for (j in 0 until 8) {
+      hcUpdate(i * 16 + j)
+    }
+  }
+  fun hash(): Long {
+    var x = hc xor Zobrist.a[1672 + castle]
+    if (jump >= 0) x = x xor Zobrist.a[1664 + jump]
+    if (side < 0) x = x xor Zobrist.a[1688]
+    return x
   }
   fun cell(x: Int) = if (inside(x)) 0 else board[x]
   fun role(x: Int): Int {
@@ -274,9 +298,13 @@ class Position {
     val p = board[m.from]
     if (p == KING) wk = m.to
     else if (p == -KING) bk = m.to
-    val u = UndoMove(p, board[m.to], castle, jump, material_score)
+    val u = UndoMove(p, board[m.to], castle, jump, material_score, hc)
+    hcUpdate(m.from)
+    hcUpdate(m.to)
     board[m.from] = 0
+    //hcUpdate(m.from)
     board[m.to] = if ((m.flags and PROMOTION) != 0) p.sign * (m.flags and 7) else p
+    hcUpdate(m.to)
     jump = if ((m.flags and PAWN_JUMP) != 0) (m.from and 15) else -1
     when (m.from) {
       0x00 -> castle = castle and 14
@@ -289,27 +317,37 @@ class Position {
     if ((m.flags and CASTLING) != 0) {
       when (m.to) {
         0x02 -> {
+          hcUpdate(0x00)
           board[0x00] = 0
           board[0x03] = ROOK
+          hcUpdate(0x03)
         }
         0x06 -> {
+          hcUpdate(0x07)
           board[0x07] = 0
           board[0x05] = ROOK
+          hcUpdate(0x05)
         }
         0x72 -> {
+          hcUpdate(0x70)
           board[0x00] = 0
           board[0x73] = -ROOK
+          hcUpdate(0x73)
         }
         0x76 -> {
+          hcUpdate(0x77)
           board[0x77] = 0
           board[0x75] = -ROOK
+          hcUpdate(0x75)
         }
       }
     }
     if ((m.flags and EN_PASSANT) != 0) {
       val i = m.from shr 4
       val j = m.to and 15
-      board[i * 16 + j] = 0
+      val k = i * 16 + j
+      hcUpdate(k)
+      board[k] = 0
       material_score += side * tbl_material_score_delta[PAWN]
     } else {
       if ((m.flags and PROMOTION) != 0) {
@@ -330,6 +368,7 @@ class Position {
     castle = u.castle
     jump = u.jump
     material_score = u.material_score
+    hc = u.hc
     if ((m.flags and CASTLING) != 0) {
       when (m.to) {
         0x02 -> {
