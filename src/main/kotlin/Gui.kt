@@ -3,6 +3,7 @@ import javax.swing.*
 import java.awt.Color
 import com.github.antma.flickering_chess.*
 import kotlin.collections.HashMap
+import kotlin.math.sign
 
 object Pieces {
   fun piece2path(p: Int): java.net.URL {
@@ -103,6 +104,9 @@ class ChessBoard(pos: Position) : JFrame() {
             for (p in cells) p.updatePiece(pos.board[p.cell128()])
           } else if (c === q) {
             c.click()
+          } else if (q.piece.sign * c.piece.sign > 0) {
+            c.click()
+            q.click()
           }
         } else {
           q.click()
