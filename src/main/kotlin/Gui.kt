@@ -88,10 +88,11 @@ class ChessBoard(pos: Position) : JFrame() {
       q.addActionListener { _ -> 
         val c = selectedCell()
         if (c != null) {
-          val t = StringBuilder(4).apply {
+          val t0 = StringBuilder(4).apply {
             append(c.s)
             append(q.s)
           }.toString()
+          val t = if (pos.isPromotion(t0)) t0 + "q" else t0
           if (pos.doSANMove(t) != null) {
             System.err.println(t)
             val v = pos.validate()

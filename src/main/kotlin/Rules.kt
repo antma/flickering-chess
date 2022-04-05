@@ -432,5 +432,11 @@ class Position {
     if (hc != h) return "hc expected - ${h}, field value - ${hc}"
     return null
   }
+  fun isPromotion(san: String): Boolean {
+    val m = enumerateMoves {
+      (it.flags and PROMOTION) != 0 && it.san().startsWith(san) 
+    }
+    return m != null
+  }
 }
 
