@@ -416,5 +416,21 @@ class Position {
     }
     return m to u
   }
+  fun validate(): String? {
+    var ms = 0
+    var h = 0L
+    for (i in 0 until 8) for (j in 0 until 8) {
+      val k = 16 * i + j
+      val p = board[k]
+      if (p != 0) {
+        val q = abs(p)
+        if (q != KING) ms += p.sign * tbl_material_score_delta[q]
+        h = h xor Zobrist.a[(KING + p) * 128 + k]
+      }
+    }
+    if (material_score != ms) return "Material Score expected - ${ms}, field value - ${material_score}"
+    if (hc != h) return "hc expected - ${h}, field value - ${hc}"
+    return null
+  }
 }
 

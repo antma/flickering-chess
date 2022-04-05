@@ -7,6 +7,8 @@ import com.github.antma.flickering_chess.Position
 fun doMoves(pos: Position, s: String) {
   for (t in s.split(' ')) {
     assertTrue(pos.doSANMove(t) != null, "doSANMove ${t} failed")
+    val v = pos.validate()
+    if (v != null) assertTrue(false, "validation failed with message '${v}' after move ${t}")
   }
 }
 

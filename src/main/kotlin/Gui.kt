@@ -94,6 +94,8 @@ class ChessBoard(pos: Position) : JFrame() {
           }.toString()
           if (pos.doSANMove(t) != null) {
             System.err.println(t)
+            val v = pos.validate()
+            require(v == null)
             c.click()
             for (p in cells) p.updatePiece(pos.board[p.cell128()])
           } else if (c === q) {
