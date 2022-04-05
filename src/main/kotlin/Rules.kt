@@ -56,7 +56,7 @@ class Move(val from: Int, val to: Int, val flags: Int) {
       }
     }.toString()
 }
-class UndoMove(val piece_from: Int, val piece_to: Int, val castle: Int, val jump: Int, val material_score: Int, val hc: Long)
+class UndoMove(val piece_from: Int, val piece_to: Int, val castle: Int, val jump: Int, val material_score: Int, val hc: Long, val fifty_move_rule: Int)
 
 class Position {
   val board = IntArray(128)
@@ -67,6 +67,7 @@ class Position {
   var bk = 0x74
   var material_score = 0
   private var hc = 0L
+  private var fifty_move_rule = 100
   private fun hcUpdate(k: Int) {
     val p = board[k]
     if (p != 0) {
@@ -299,11 +300,10 @@ class Position {
     val p = board[m.from]
     if (p == KING) wk = m.to
     else if (p == -KING) bk = m.to
-    val u = UndoMove(p, board[m.to], castle, jump, material_score, hc)
+    val u = UndoMove(p, board[m.to], castle, jump, material_score, hc, fifty_move_rule)
     hcUpdate(m.from)
     hcUpdate(m.to)
     board[m.from] = 0
-    //hcUpdate(m.from)
     board[m.to] = if ((m.flags and PROMOTION) != 0) p.sign * (m.flags and 7) else p
     hcUpdate(m.to)
     jump = if ((m.flags and PAWN_JUMP) != 0) (m.from and 15) else -1
@@ -358,6 +358,8 @@ class Position {
         material_score += side * tbl_material_score_delta[abs(u.piece_to)]
       }
     }
+    fifty_move_rule--
+    if ((m.flags and CAPTURE) != 0 || abs(u.piece_from) == PAWN) fifty_move_rule = 100
     side *= -1
     return u
   }
@@ -370,6 +372,7 @@ class Position {
     jump = u.jump
     material_score = u.material_score
     hc = u.hc
+    fifty_move_rule = u.fifty_move_rule
     if ((m.flags and CASTLING) != 0) {
       when (m.to) {
         0x02 -> {
@@ -438,5 +441,14 @@ class Position {
       (it.flags and PROMOTION) != 0 && it.san().startsWith(san) 
     }
     return m != null
+  }
+  fun isCheckMate(): Boolean {
+    if (!isCheck()) return false
+    return enumerateMoves {
+      val u = doMove(it)
+      val res = isLegal()
+      undoMove(it, u)
+      res
+    } == null
   }
 }
