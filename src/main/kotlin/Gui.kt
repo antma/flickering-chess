@@ -4,28 +4,30 @@ import java.awt.Color
 import com.github.antma.flickering_chess.*
 import kotlin.collections.HashMap
 
-fun piece2path(p: Int): String =
-  StringBuilder().apply {
-    append("../pieces/")
-    append(when(p) {
-      -KING -> "BlackKing"
-      -QUEEN -> "BlackQueen"
-      -ROOK -> "BlackRook"
-      -BISHOP -> "BlackBishop"
-      -KNIGHT -> "BlackKnight"
-      -PAWN -> "BlackPawn"
-      PAWN -> "WhitePawn"
-      KNIGHT -> "WhiteKnight"
-      BISHOP -> "WhiteBishop"
-      ROOK -> "WhiteRook"
-      QUEEN -> "WhiteQueen"
-      KING -> "WhiteKing"
-      else -> ""
-    })
-    append(".png")
-  }.toString()
-
 object Pieces {
+  fun piece2path(p: Int): java.net.URL {
+    val s = StringBuilder().apply {
+      append("resources/")
+      append(when(p) {
+        -KING -> "BlackKing"
+        -QUEEN -> "BlackQueen"
+        -ROOK -> "BlackRook"
+        -BISHOP -> "BlackBishop"
+        -KNIGHT -> "BlackKnight"
+        -PAWN -> "BlackPawn"
+        PAWN -> "WhitePawn"
+        KNIGHT -> "WhiteKnight"
+        BISHOP -> "WhiteBishop"
+        ROOK -> "WhiteRook"
+        QUEEN -> "WhiteQueen"
+        KING -> "WhiteKing"
+        else -> ""
+      })
+      append(".png")
+    }.toString()
+    System.err.println(javaClass.classLoader.getResource(s).path)
+    return javaClass.classLoader.getResource(s)
+  }
   val m = HashMap<Int, ImageIcon>().apply {
     for (i in -KING .. -PAWN) {
       put(i, ImageIcon(piece2path(i)))
