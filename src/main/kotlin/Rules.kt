@@ -1,6 +1,7 @@
 package com.github.antma.flickering_chess
 import kotlin.math.abs
 import kotlin.math.sign
+import kotlin.collections.mutableSetOf
 
 const val PAWN = 1
 const val KNIGHT = 2
@@ -38,7 +39,7 @@ object Zobrist {
   }
 }
 
-class Move(val from: Int, val to: Int, val flags: Int) {
+data class Move(val from: Int, val to: Int, val flags: Int) {
   fun san(): String =
     StringBuilder(5).apply {
       append((((from and 15) + 97)).toChar())
@@ -232,7 +233,7 @@ class Position {
     }
     return false
   }
-  private fun enumerateMoves(op: (Move) -> Boolean): Move? {
+  fun enumerateMoves(op: (Move) -> Boolean): Move? {
     for (i in 0 until 8) for (j in 0 until 8) {
       val x = i * 16 + j
       val p = role(x) * side
@@ -445,7 +446,7 @@ class Position {
   }
   fun isPromotion(san: String): Boolean {
     val m = enumerateMoves {
-      (it.flags and PROMOTION) != 0 && it.san().startsWith(san) 
+      (it.flags and PROMOTION) != 0 && it.san().startsWith(san)
     }
     return m != null
   }
@@ -482,5 +483,90 @@ class Game {
     moves.add(m)
     h.add(pos.hash())
     return true
+  }
+}
+
+const val MATE_SCORE: Int = 10_000
+const val PLY: Int = 10
+const val CHECK_EXTENTION = PLY
+
+const val LOWERBOUND = 1
+const val UPPERBOUND = 2
+
+class CacheSlot(val hc: Long, val m: Move?, val depth: Int, val score: Int, val flags: Int)
+class Cache(bits: Int) {
+  private val size = 1 shl bits
+  private val mask = size - 1
+  private val cache = arrayOfNulls<CacheSlot>(size)
+  fun store(slot: CacheSlot) {
+    val idx = slot.hc.toInt() and mask
+    val p = cache[idx]
+    if (p == null || slot.depth >= p.depth) cache[idx] = slot
+  }
+  fun probe(hc: Long): CacheSlot? {
+    val idx = hc.toInt() and mask
+    val p = cache[idx]
+    if (p == null || p.hc != hc) return null
+    return p
+  }
+}
+
+class Engine(bits: Int) {
+  val cache = Cache(bits)
+  var nodes = 0
+  val h = mutableSetOf<Long>()
+  fun qsearch(pos: Position, alpha: Int, beta: Int, ply: Int): Int {
+    return pos.material_score * pos.side
+  }
+  fun search(pos: Position, alpha: Int, beta: Int, ply: Int, depth: Int): Int {
+    val hc = pos.hash()
+    //draw
+    if ((hc in h) || pos.fiftyMoveDraw()) return 0
+    val check = pos.isCheck()
+    val d = if (check) depth + CHECK_EXTENTION else depth
+    if (d <= 0) return qsearch(pos, alpha, beta, ply)
+    val p = cache.probe(hc)
+    if (p != null && p.depth >= depth) {
+      when(p.flags) {
+        LOWERBOUND -> if (p.score >= beta) return beta
+        UPPERBOUND -> if (p.score <= alpha) return alpha
+        else -> return p.score
+      }
+    }
+    val l = mutableListOf<Pair<Int, Move>>()
+    pos.enumerateMoves {
+      l.add(pos.materialScoreDelta(it) to it)
+      false
+    }
+    l.sortByDescending { it.first }
+    h.add(hc)
+    var best_score = alpha
+    var legal_moves = 0
+    var best_move: Move? = null
+    for (m in l) {
+      val u = pos.doMove(m.second)
+      if (pos.isLegal()) {
+        val w = search(pos, -beta, -best_score, ply + 1, depth - PLY)
+        if (best_score < w) {
+          best_score = w
+          best_move = m.second
+          if (best_score >= beta) {
+            pos.undoMove(m.second, u)
+            break
+          }
+        }
+        legal_moves++
+      }
+      pos.undoMove(m.second, u)
+    }
+    if (best_move != null) {
+      if (best_score < beta) cache.store(CacheSlot(hc, best_move, depth, best_score, 0))
+      else cache.store(CacheSlot(hc, best_move, depth, best_score, LOWERBOUND))
+    } else {
+      cache.store(CacheSlot(hc, null, depth, alpha, UPPERBOUND))
+    }
+    h.remove(hc)
+    if (check && legal_moves == 0) return -MATE_SCORE + ply
+    return best_score
   }
 }
