@@ -74,13 +74,14 @@ class Cell(cell: Int, val pos: Position): JButton() {
   }
 }
 
-class ChessBoard(pos: Position) : JFrame() {
+class ChessBoard(game: Game) : JFrame() {
   val cells = Array(64) {
     val i = it / 8
     val j = it % 8
-    Cell((7 - i) * 8 + j, pos)
+    Cell((7 - i) * 8 + j, game.pos)
   }
   fun selectedCell(): Cell? = cells.find { it.isSelected() }
+  var active = true
   init {
     defaultCloseOperation = JFrame.EXIT_ON_CLOSE
     setSize(800, 800)
@@ -89,27 +90,34 @@ class ChessBoard(pos: Position) : JFrame() {
     isVisible = true
     for (q in cells) {
       q.addActionListener { _ -> 
-        val c = selectedCell()
-        if (c != null) {
-          val t0 = StringBuilder(4).apply {
-            append(c.s)
-            append(q.s)
-          }.toString()
-          val t = if (pos.isPromotion(t0)) t0 + "q" else t0
-          if (pos.doSANMove(t) != null) {
-            System.err.println(t)
-            val v = pos.validate()
-            require(v == null)
-            c.click()
-            for (p in cells) p.updatePiece(pos.board[p.cell128()])
-          } else if (c === q) {
-            c.click()
-          } else if (q.piece.sign * c.piece.sign > 0) {
-            c.click()
+        if (active) {
+          val c = selectedCell()
+          if (c != null) {
+            val t0 = StringBuilder(4).apply {
+              append(c.s)
+              append(q.s)
+            }.toString()
+            val t = if (game.pos.isPromotion(t0)) t0 + "q" else t0
+            if (game.doSANMove(t)) {
+              System.err.println(t)
+              val v = game.pos.validate()
+              require(v == null)
+              c.click()
+              for (p in cells) p.updatePiece(game.pos.board[p.cell128()])
+              val r = game.getResult()
+              if (r != null) {
+                title = r
+                active = false
+              }
+            } else if (c === q) {
+              c.click()
+            } else if (q.piece.sign * c.piece.sign > 0) {
+              c.click()
+              q.click()
+            }
+          } else {
             q.click()
           }
-        } else {
-          q.click()
         }
       }
     }
@@ -117,15 +125,7 @@ class ChessBoard(pos: Position) : JFrame() {
 }
 
 private fun createAndShowGUI() {
-  val p = Position()
-  ChessBoard(p)
-  /*
-  val frame = JFrame().apply {
-    defaultCloseOperation = JFrame.EXIT_ON_CLOSE
-    setSize(600, 600)
-  }
-  frame.isVisible = true
-  */
+  ChessBoard(Game())
 }
 
 fun main() {

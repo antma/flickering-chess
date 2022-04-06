@@ -295,7 +295,7 @@ class Position {
     return null
   }
   fun isLegal(): Boolean = if (side < 0) !isAttacked(wk, -1) else !isAttacked(bk, 1)
-  fun isCheck(): Boolean = if (side > 0) !isAttacked(wk, -1) else !isAttacked(bk, 1)
+  fun isCheck(): Boolean = if (side > 0) isAttacked(wk, -1) else isAttacked(bk, 1)
   fun doMove(m: Move): UndoMove {
     val p = board[m.from]
     if (p == KING) wk = m.to
@@ -409,7 +409,6 @@ class Position {
   }
   fun doSANMove(san: String): Pair<Move, UndoMove>? {
     val m = enumerateMoves {
-      //System.err.println(it.san())
       it.san() == san
     }
     if (m == null) return null
@@ -450,5 +449,30 @@ class Position {
       undoMove(it, u)
       res
     } == null
+  }
+  fun fiftyMoveDraw() = fifty_move_rule <= 0
+}
+
+class Game {
+  private val moves = ArrayList<Move>()
+  private val h = ArrayList<Long>()
+  val pos = Position()
+  init {
+    h.add(pos.hash())
+  }
+  fun getResult(): String? {
+    if (pos.isCheckMate()) return (if (pos.side < 0) "White" else "Black") + " wins by checkmate."
+    if (pos.fiftyMoveDraw()) return "Draw by 50-move rule"
+    val x = h.lastOrNull()!!
+    if (h.count { it == x } >= 3) return "Draw by 3-fold repetition"
+    return null
+  }
+  fun doSANMove(san: String): Boolean {
+    val p = pos.doSANMove(san)
+    if (p == null) return false
+    val (m, _) = p
+    moves.add(m)
+    h.add(pos.hash())
+    return true
   }
 }

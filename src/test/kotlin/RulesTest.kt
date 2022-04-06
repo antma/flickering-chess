@@ -27,4 +27,11 @@ class RulesTest {
     doMoves(p, "e2e4 e7e5 e1e2 e8e7 e2e3 e7e6")
     assertTrue(p.doSANMove("e3f4") == null)
   }
+  @Test
+  fun testCheckMate() {
+    val p = Position()
+    doMoves(p, "e2e4 e7e5 f1c4 f8c5 d1h5 g8f6 h5f7")
+    assertTrue(p.isCheck())
+    assertTrue(p.isCheckMate())
+  }
 }
