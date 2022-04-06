@@ -296,11 +296,27 @@ class Position {
   }
   fun isLegal(): Boolean = if (side < 0) !isAttacked(wk, -1) else !isAttacked(bk, 1)
   fun isCheck(): Boolean = if (side > 0) isAttacked(wk, -1) else isAttacked(bk, 1)
+  fun materialScoreDelta(m: Move): Int {
+    if ((m.flags and EN_PASSANT) != 0) {
+      return tbl_material_score_delta[PAWN]
+    } else {
+      var ms = 0
+      if ((m.flags and PROMOTION) != 0) {
+        ms += tbl_material_score_delta[m.flags and 7] - tbl_material_score_delta[PAWN]
+      }
+      val p = board[m.to]
+      if (p != 0) {
+        ms += tbl_material_score_delta[abs(p)]
+      }
+      return ms
+    }
+  }
   fun doMove(m: Move): UndoMove {
     val p = board[m.from]
     if (p == KING) wk = m.to
     else if (p == -KING) bk = m.to
     val u = UndoMove(p, board[m.to], castle, jump, material_score, hc, fifty_move_rule)
+    material_score += side * materialScoreDelta(m)
     hcUpdate(m.from)
     hcUpdate(m.to)
     board[m.from] = 0
@@ -349,14 +365,6 @@ class Position {
       val k = i * 16 + j
       hcUpdate(k)
       board[k] = 0
-      material_score += side * tbl_material_score_delta[PAWN]
-    } else {
-      if ((m.flags and PROMOTION) != 0) {
-        material_score += side * (tbl_material_score_delta[m.flags and 7] - tbl_material_score_delta[PAWN])
-      }
-      if (u.piece_to != 0) {
-        material_score += side * tbl_material_score_delta[abs(u.piece_to)]
-      }
     }
     fifty_move_rule--
     if ((m.flags and CAPTURE) != 0 || abs(u.piece_from) == PAWN) fifty_move_rule = 100
