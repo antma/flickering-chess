@@ -57,7 +57,7 @@ data class Move(val from: Int, val to: Int, val flags: Int) {
       }
     }.toString()
 }
-class UndoMove(val piece_from: Int, val piece_to: Int, val castle: Int, val jump: Int, val material_score: Int, val hc: Long, val fifty_move_rule: Int)
+class UndoMove(val move: Move, val piece_from: Int, val piece_to: Int, val castle: Int, val jump: Int, val material_score: Int, val hc: Long, val fifty_move_rule: Int)
 
 class Position {
   val board = IntArray(128)
@@ -313,10 +313,11 @@ class Position {
     }
   }
   fun doMove(m: Move): UndoMove {
+    //System.err.println("doMove: " + m.san())
     val p = board[m.from]
     if (p == KING) wk = m.to
     else if (p == -KING) bk = m.to
-    val u = UndoMove(p, board[m.to], castle, jump, material_score, hc, fifty_move_rule)
+    val u = UndoMove(m, p, board[m.to], castle, jump, material_score, hc, fifty_move_rule)
     material_score += side * materialScoreDelta(m)
     hcUpdate(m.from)
     hcUpdate(m.to)
@@ -372,7 +373,9 @@ class Position {
     side *= -1
     return u
   }
-  fun undoMove(m: Move, u: UndoMove) {
+  fun undoMove(u: UndoMove) {
+    val m = u.move
+    //System.err.println("undoMove: " + m.san())
     if (u.piece_from == KING) wk = m.from
     else if (u.piece_from == -KING) bk = m.from
     board[m.from] = u.piece_from
@@ -416,17 +419,18 @@ class Position {
           return j
     return -1
   }
-  fun doSANMove(san: String): Pair<Move, UndoMove>? {
+  fun doSANMove(san: String): UndoMove? {
+    System.err.println("doSANMove: $san")
     val m = enumerateMoves {
       it.san() == san
     }
     if (m == null) return null
     val u = doMove(m)
     if (!isLegal()) {
-      undoMove(m, u)
+      undoMove(u)
       return null
     }
-    return m to u
+    return u
   }
   fun validate(): String? {
     var ms = 0
@@ -455,7 +459,7 @@ class Position {
     return enumerateMoves {
       val u = doMove(it)
       val res = isLegal()
-      undoMove(it, u)
+      undoMove(u)
       res
     } == null
   }
@@ -479,8 +483,7 @@ class Game {
   fun doSANMove(san: String): Boolean {
     val p = pos.doSANMove(san)
     if (p == null) return false
-    val (m, _) = p
-    moves.add(m)
+    moves.add(p.move)
     h.add(pos.hash())
     return true
   }
@@ -534,7 +537,7 @@ class Engine(bits: Int) {
     val check = pos.isCheck()
     val d = if (check) depth + CHECK_EXTENTION else depth
     //if (d <= 0) return qsearch(pos, alpha, beta, ply)
-    if (d <= 0) return eval(pos) 
+    if (d <= 0) return eval(pos)
     val p = cache.probe(hc)
     if (p != null && p.depth >= depth) {
       when(p.flags) {
@@ -561,18 +564,20 @@ class Engine(bits: Int) {
     for (m in l) {
       val u = pos.doMove(m.second)
       if (pos.isLegal()) {
+        legal_moves++
         val w = -search(pos, -beta, -best_score, ply + 1, depth - PLY)
         if (best_score < w) {
           best_score = w
           best_move = m.second
           if (best_score >= beta) {
-            pos.undoMove(m.second, u)
+            assert(m.second == u.move)
+            pos.undoMove(u)
             break
           }
         }
-        legal_moves++
       }
-      pos.undoMove(m.second, u)
+      assert(m.second == u.move)
+      pos.undoMove(u)
     }
     if (best_move != null) {
       if (best_score < beta) cache.store(CacheSlot(hc, best_move, depth, best_score, 0, cache.getGeneration()))
@@ -581,14 +586,16 @@ class Engine(bits: Int) {
       cache.store(CacheSlot(hc, null, depth, alpha, UPPERBOUND, cache.getGeneration()))
     }
     h.remove(hc)
-    if (check && legal_moves == 0) return -MATE_SCORE + ply
+    if (legal_moves == 0) return if (check) -MATE_SCORE + ply else 0
     return best_score
   }
   fun root_search(pos: Position, max_depth: Int, max_nodes: Int): Pair<Move, Int> {
     nodes = 0
     var ev = 0
+    val h = pos.hash()
     cache.incGeneration()
     for (d in 1 .. max_depth) {
+      require(pos.hash() == h)
       val alpha = ev - 50
       val beta = ev + 50
       val w = search(pos, alpha, beta, 0, d * PLY)
@@ -601,7 +608,7 @@ class Engine(bits: Int) {
       }
       if (nodes >= max_nodes) break
     }
-    val p = cache.probe(pos.hash())
+    val p = cache.probe(h)
     require(p != null)
     return p.move!! to ev
   }

@@ -108,7 +108,7 @@ class ChessBoard(val game: Game) : JFrame() {
     for (b in cells) add(b)
     isVisible = true
     for (q in cells) {
-      q.addActionListener { _ -> 
+      q.addActionListener { _ ->
         if (state == UIState.UserMove) {
           val c = selectedCell()
           if (c != null) {
@@ -128,7 +128,7 @@ class ChessBoard(val game: Game) : JFrame() {
                 val p = engine.root_search(game.pos, max_depth=100, max_nodes=10000)
                 require(game.doSANMove(p.first.san()))
                 updateBoard()
-                adjudicateGame()
+                if (!adjudicateGame()) state = UIState.UserMove
               }
             } else if (c === q) {
               c.click()
