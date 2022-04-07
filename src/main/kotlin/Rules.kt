@@ -493,15 +493,18 @@ const val CHECK_EXTENTION = PLY
 const val LOWERBOUND = 1
 const val UPPERBOUND = 2
 
-class CacheSlot(val hc: Long, val m: Move?, val depth: Int, val score: Int, val flags: Int)
+class CacheSlot(val hc: Long, val move: Move?, val depth: Int, val score: Int, val flags: Int, val age: Int)
 class Cache(bits: Int) {
   private val size = 1 shl bits
   private val mask = size - 1
   private val cache = arrayOfNulls<CacheSlot>(size)
+  private var generation = 0
+  fun getGeneration(): Int = generation
+  fun incGeneration() { generation++ }
   fun store(slot: CacheSlot) {
     val idx = slot.hc.toInt() and mask
     val p = cache[idx]
-    if (p == null || slot.depth >= p.depth) cache[idx] = slot
+    if (p == null || slot.depth >= p.depth || slot.age != generation) cache[idx] = slot
   }
   fun probe(hc: Long): CacheSlot? {
     val idx = hc.toInt() and mask
@@ -515,16 +518,23 @@ class Engine(bits: Int) {
   val cache = Cache(bits)
   var nodes = 0
   val h = mutableSetOf<Long>()
+  fun eval(pos: Position): Int {
+    nodes++
+    return pos.material_score * pos.side
+  }
+  /*
   fun qsearch(pos: Position, alpha: Int, beta: Int, ply: Int): Int {
     return pos.material_score * pos.side
   }
+  */
   fun search(pos: Position, alpha: Int, beta: Int, ply: Int, depth: Int): Int {
     val hc = pos.hash()
     //draw
     if ((hc in h) || pos.fiftyMoveDraw()) return 0
     val check = pos.isCheck()
     val d = if (check) depth + CHECK_EXTENTION else depth
-    if (d <= 0) return qsearch(pos, alpha, beta, ply)
+    //if (d <= 0) return qsearch(pos, alpha, beta, ply)
+    if (d <= 0) return eval(pos) 
     val p = cache.probe(hc)
     if (p != null && p.depth >= depth) {
       when(p.flags) {
@@ -535,7 +545,12 @@ class Engine(bits: Int) {
     }
     val l = mutableListOf<Pair<Int, Move>>()
     pos.enumerateMoves {
-      l.add(pos.materialScoreDelta(it) to it)
+      val h = if (p != null && p.move == it) {
+        MATE_SCORE
+      } else {
+        pos.materialScoreDelta(it)
+      }
+      l.add(h to it)
       false
     }
     l.sortByDescending { it.first }
@@ -546,7 +561,7 @@ class Engine(bits: Int) {
     for (m in l) {
       val u = pos.doMove(m.second)
       if (pos.isLegal()) {
-        val w = search(pos, -beta, -best_score, ply + 1, depth - PLY)
+        val w = -search(pos, -beta, -best_score, ply + 1, depth - PLY)
         if (best_score < w) {
           best_score = w
           best_move = m.second
@@ -560,13 +575,34 @@ class Engine(bits: Int) {
       pos.undoMove(m.second, u)
     }
     if (best_move != null) {
-      if (best_score < beta) cache.store(CacheSlot(hc, best_move, depth, best_score, 0))
-      else cache.store(CacheSlot(hc, best_move, depth, best_score, LOWERBOUND))
+      if (best_score < beta) cache.store(CacheSlot(hc, best_move, depth, best_score, 0, cache.getGeneration()))
+      else cache.store(CacheSlot(hc, best_move, depth, best_score, LOWERBOUND, cache.getGeneration()))
     } else {
-      cache.store(CacheSlot(hc, null, depth, alpha, UPPERBOUND))
+      cache.store(CacheSlot(hc, null, depth, alpha, UPPERBOUND, cache.getGeneration()))
     }
     h.remove(hc)
     if (check && legal_moves == 0) return -MATE_SCORE + ply
     return best_score
+  }
+  fun root_search(pos: Position, max_depth: Int, max_nodes: Int): Pair<Move, Int> {
+    nodes = 0
+    var ev = 0
+    cache.incGeneration()
+    for (d in 1 .. max_depth) {
+      val alpha = ev - 50
+      val beta = ev + 50
+      val w = search(pos, alpha, beta, 0, d * PLY)
+      if (w <= alpha) {
+        ev = search(pos, -MATE_SCORE, beta, 0, d * PLY)
+      } else if (w >= beta) {
+        ev = search(pos, alpha, MATE_SCORE, 0, d * PLY)
+      } else {
+        ev = w
+      }
+      if (nodes >= max_nodes) break
+    }
+    val p = cache.probe(pos.hash())
+    require(p != null)
+    return p.move!! to ev
   }
 }
