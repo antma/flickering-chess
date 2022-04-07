@@ -46,6 +46,22 @@ class RulesTest {
     assertTrue(p.doSANMove(m.first.san()) != null)
   }
   @Test
+  fun testIsLegal() {
+    val p = Position()
+    doMoves(p, "e2e4 a7a6 d2d4 c7c6 g1f3 b7b5 b1c3 g8f6 e1e2 f6d4")
+    assertTrue(p.doSANMove("c3d2") == null)
+  }
+  //@Test
+  fun testEngine2() {
+    val p = Position()
+    doMoves(p, "e2e4 a7a6 d2d4 c7c6 g1f3 b7b5 b1c3")
+    val e = Engine(16)
+    val m = e.root_search(p, max_depth = 5, max_nodes = Int.MAX_VALUE)
+    val v = p.validate()
+    if (v != null) assertTrue(false, "validation failed with message '${v}' after root search")
+    assertTrue(p.doSANMove(m.first.san()) != null)
+  }
+  @Test
   fun testUndoCastling() {
     val p = Position()
     doMoves(p, "e2e4 e7e5 e1e2 d7d6 e2e1 c8g4 e1e2 b8c6 e2e1 d8e7 e1e2")

@@ -258,7 +258,7 @@ class Position {
       if (!inside(y)) continue
       val q = role(y)
       if (s * q <= 0) continue
-      if (q == KNIGHT) return true
+      if (abs(q) == KNIGHT) return true
     }
     for (delta in white_pawn_captures) {
       val y = x - delta * s
@@ -564,6 +564,7 @@ class Engine(bits: Int) {
   }
   */
   fun search(pos: Position, alpha: Int, beta: Int, ply: Int, depth: Int): Int {
+    System.err.println("search(pos: ${pos.fen()}, alpha: ${alpha}, beta: ${beta}, ply: ${ply}, depth: ${depth})")
     val v = pos.validate()
     if (v != null) {
       System.err.println("search(pos: ${pos.fen()}, alpha: ${alpha}, beta: ${beta}, ply: ${ply}, depth: ${depth}), $v")
