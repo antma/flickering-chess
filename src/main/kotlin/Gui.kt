@@ -26,7 +26,6 @@ object Pieces {
       })
       append(".png")
     }.toString()
-    System.err.println(javaClass.classLoader.getResource(s).path)
     return javaClass.classLoader.getResource(s)
   }
   val m = HashMap<Int, ImageIcon>().apply {

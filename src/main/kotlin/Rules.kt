@@ -564,19 +564,19 @@ class Engine(bits: Int) {
   }
   */
   fun search(pos: Position, alpha: Int, beta: Int, ply: Int, depth: Int): Int {
+    /*
     System.err.println("search(pos: ${pos.fen()}, alpha: ${alpha}, beta: ${beta}, ply: ${ply}, depth: ${depth})")
     val v = pos.validate()
     if (v != null) {
       System.err.println("search(pos: ${pos.fen()}, alpha: ${alpha}, beta: ${beta}, ply: ${ply}, depth: ${depth}), $v")
       require(false)
     }
+    */
     val hc = pos.hash()
     //draw
     if ((hc in h) || pos.fiftyMoveDraw()) return 0
-    val check = pos.isCheck()
-    val d = if (check) depth + CHECK_EXTENTION else depth
-    //if (d <= 0) return qsearch(pos, alpha, beta, ply)
-    if (d <= 0) return eval(pos)
+    if (depth <= 0) return eval(pos)
+    //if (depth <= 0) return qsearch(pos, alpha, beta, ply)
     val p = cache.probe(hc)
     if (p != null && p.depth >= depth) {
       when(p.flags) {
@@ -585,6 +585,8 @@ class Engine(bits: Int) {
         else -> return p.score
       }
     }
+    val check = pos.isCheck()
+    val d = (if (check) depth + CHECK_EXTENTION else depth) - PLY
     val l = mutableListOf<Pair<Int, Move>>()
     pos.enumerateMoves {
       val h = if (p != null && p.move == it) {
@@ -604,7 +606,7 @@ class Engine(bits: Int) {
       val u = pos.doMove(m.second)
       if (pos.isLegal()) {
         legal_moves++
-        val w = -search(pos, -beta, -best_score, ply + 1, depth - PLY)
+        val w = -search(pos, -beta, -best_score, ply + 1, d)
         if (best_score < w) {
           best_score = w
           best_move = m.second
