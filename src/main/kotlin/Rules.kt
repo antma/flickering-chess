@@ -555,15 +555,47 @@ class Engine(bits: Int) {
   var nodes = 0
   val h = mutableSetOf<Long>()
   fun eval(pos: Position): Int {
-    nodes++
     return pos.material_score * pos.side
   }
-  /*
   fun qsearch(pos: Position, alpha: Int, beta: Int, ply: Int): Int {
-    return pos.material_score * pos.side
+    var legal_moves = 0
+    val l = mutableListOf<Pair<Int, Move>>()
+    pos.enumerateMoves {
+      if ((it.flags and (CAPTURE + PROMOTION)) != 0) {
+        l.add(pos.materialScoreDelta(it) to it)
+      } else if (legal_moves == 0) {
+        val u = pos.doMove(it)
+        if (pos.isLegal()) ++legal_moves
+        pos.undoMove(u)
+      }
+      false
+    }
+    l.sortByDescending { it.first }
+    val ev = eval(pos)
+    if (legal_moves > 0 && ev >= beta) return ev
+    var best_score = kotlin.math.max(alpha, ev)
+    for (m in l) {
+      val u = pos.doMove(m.second)
+      if (pos.isLegal()) {
+        ++legal_moves
+        val w = -qsearch(pos, -beta, -best_score, ply + 1)
+        if (best_score < w) {
+          best_score = w
+          if (best_score >= beta) {
+            pos.undoMove(u)
+            break
+          }
+        }
+      }
+      pos.undoMove(u)
+    }
+    if (legal_moves == 0) {
+      return if (pos.isCheck()) -MATE_SCORE + ply else 0
+    }
+    return best_score
   }
-  */
   fun search(pos: Position, alpha: Int, beta: Int, ply: Int, depth: Int): Int {
+    nodes++
     /*
     System.err.println("search(pos: ${pos.fen()}, alpha: ${alpha}, beta: ${beta}, ply: ${ply}, depth: ${depth})")
     val v = pos.validate()
@@ -575,7 +607,7 @@ class Engine(bits: Int) {
     val hc = pos.hash()
     //draw
     if ((hc in h) || pos.fiftyMoveDraw()) return 0
-    if (depth <= 0) return eval(pos)
+    if (depth <= 0) return qsearch(pos, alpha, beta, ply)
     //if (depth <= 0) return qsearch(pos, alpha, beta, ply)
     val p = cache.probe(hc)
     if (p != null && p.depth >= depth) {
@@ -647,6 +679,7 @@ class Engine(bits: Int) {
       } else {
         ev = w
       }
+      System.err.println("depth: $d, nodes: $nodes")
       if (nodes >= max_nodes) break
     }
     val p = cache.probe(h)
