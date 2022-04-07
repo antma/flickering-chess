@@ -74,14 +74,33 @@ class Cell(cell: Int, val pos: Position): JButton() {
   }
 }
 
-class ChessBoard(game: Game) : JFrame() {
+enum class UIState {
+  UserMove,
+  ComputeMove,
+  GameFinished
+}
+
+class ChessBoard(val game: Game) : JFrame() {
+  val engine = Engine(16)
   val cells = Array(64) {
     val i = it / 8
     val j = it % 8
     Cell((7 - i) * 8 + j, game.pos)
   }
   fun selectedCell(): Cell? = cells.find { it.isSelected() }
-  var active = true
+  var state = UIState.UserMove
+  private fun updateBoard() {
+    for (p in cells) p.updatePiece(game.pos.board[p.cell128()])
+  }
+  private fun adjudicateGame(): Boolean {
+    val r = game.getResult()
+    if (r != null) {
+      title = r
+      state = UIState.GameFinished
+      return true
+    }
+    return false
+  }
   init {
     defaultCloseOperation = JFrame.EXIT_ON_CLOSE
     setSize(800, 800)
@@ -90,7 +109,7 @@ class ChessBoard(game: Game) : JFrame() {
     isVisible = true
     for (q in cells) {
       q.addActionListener { _ -> 
-        if (active) {
+        if (state == UIState.UserMove) {
           val c = selectedCell()
           if (c != null) {
             val t0 = StringBuilder(4).apply {
@@ -103,11 +122,13 @@ class ChessBoard(game: Game) : JFrame() {
               val v = game.pos.validate()
               require(v == null)
               c.click()
-              for (p in cells) p.updatePiece(game.pos.board[p.cell128()])
-              val r = game.getResult()
-              if (r != null) {
-                title = r
-                active = false
+              updateBoard()
+              if (!adjudicateGame()) {
+                state = UIState.ComputeMove
+                val p = engine.root_search(game.pos, max_depth=100, max_nodes=10000)
+                require(game.doSANMove(p.first.san()))
+                updateBoard()
+                adjudicateGame()
               }
             } else if (c === q) {
               c.click()
