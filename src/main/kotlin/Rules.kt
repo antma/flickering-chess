@@ -100,6 +100,39 @@ class Position {
       hcUpdate(i * 16 + j)
     }
   }
+  fun fen(): String = StringBuilder().run {
+    for (i in (0 until 8).reversed()) {
+      var c = 0
+      fun put(ch: Char) {
+        if (c != 0) {
+          append(c)
+        }
+        append(ch)
+        c = 0
+      }
+      for (j in 0 until 8) {
+        when (board[i*16+j]) {
+          -KING -> put('k')
+          -QUEEN -> put('q')
+          -ROOK -> put('r')
+          -BISHOP -> put('b')
+          -KNIGHT -> put('n')
+          -PAWN -> put('p')
+          0 -> c++
+          PAWN -> put('P')
+          KNIGHT -> put('N')
+          BISHOP -> put('B')
+          ROOK -> put('R')
+          QUEEN -> put('Q')
+          KING -> put('K')
+          else -> put('?')
+        }
+      }
+      put(if (i == 0) ' ' else '/')
+    }
+    append(if (side > 0) 'w' else 'b')
+    toString()
+  }
   fun hash(): Long {
     var x = hc xor Zobrist.a[1672 + castle]
     if (jump >= 0) x = x xor Zobrist.a[1664 + jump]
@@ -349,7 +382,7 @@ class Position {
         }
         0x72 -> {
           hcUpdate(0x70)
-          board[0x00] = 0
+          board[0x70] = 0
           board[0x73] = -ROOK
           hcUpdate(0x73)
         }
@@ -396,7 +429,7 @@ class Position {
           board[0x07] = ROOK
         }
         0x72 -> {
-          board[0x03] = 0
+          board[0x73] = 0
           board[0x70] = -ROOK
         }
         0x76 -> {
@@ -531,6 +564,11 @@ class Engine(bits: Int) {
   }
   */
   fun search(pos: Position, alpha: Int, beta: Int, ply: Int, depth: Int): Int {
+    val v = pos.validate()
+    if (v != null) {
+      System.err.println("search(pos: ${pos.fen()}, alpha: ${alpha}, beta: ${beta}, ply: ${ply}, depth: ${depth}), $v")
+      require(false)
+    }
     val hc = pos.hash()
     //draw
     if ((hc in h) || pos.fiftyMoveDraw()) return 0
