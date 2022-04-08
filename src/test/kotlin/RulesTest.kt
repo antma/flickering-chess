@@ -71,7 +71,7 @@ class RulesTest {
     doMoves(p, "d6e6 a7d7 h3d3 c5c4 d3c5 e8d6 c5d6 d7e6 g6e6 c4c3 b2c3 g7g6 c3c4 f8g7 e6f7 g7h6")
     doMoves(p, "h2h4 g8f6 f7f6 h8e8 g5f7 e8e1 g1h2 e1h1 h2h1")
     val e = Engine(16)
-    val m = e.root_search(p, max_depth = 10, max_nodes = Int.MAX_VALUE)
+    val m = e.root_search(p, max_depth = 6, max_nodes = Int.MAX_VALUE)
     val v = p.validate()
     if (v != null) assertTrue(false, "validation failed with message '${v}' after root search")
     assertTrue(p.doSANMove(m.first.san()) != null)

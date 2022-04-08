@@ -1,6 +1,8 @@
 package com.github.antma.flickering_chess
 import kotlin.math.abs
 import kotlin.math.sign
+import kotlin.math.min
+import kotlin.math.max
 import kotlin.collections.mutableSetOf
 
 const val PAWN = 1
@@ -453,7 +455,7 @@ class Position {
     return -1
   }
   fun doSANMove(san: String): UndoMove? {
-    System.err.println("doSANMove: $san")
+    //System.err.println("doSANMove: $san")
     val m = enumerateMoves {
       it.san() == san
     }
@@ -522,7 +524,7 @@ class Game {
   }
 }
 
-const val MATE_SCORE: Int = 10_000
+const val MATE_SCORE: Int = 30_000
 const val PLY: Int = 10
 const val CHECK_EXTENTION = PLY
 
@@ -595,6 +597,7 @@ class Engine(bits: Int) {
     return best_score
   }
   fun search(pos: Position, alpha: Int, beta: Int, ply: Int, depth: Int): Int {
+    assert(alpha < beta) { "alpha = $alpha, beta = $beta, ply = $ply, depth = $depth"}
     nodes++
     /*
     System.err.println("search(pos: ${pos.fen()}, alpha: ${alpha}, beta: ${beta}, ply: ${ply}, depth: ${depth})")
@@ -612,8 +615,8 @@ class Engine(bits: Int) {
     val p = cache.probe(hc)
     if (p != null && p.depth >= depth) {
       when(p.flags) {
-        LOWERBOUND -> if (p.score >= beta) return beta
-        UPPERBOUND -> if (p.score <= alpha) return alpha
+        LOWERBOUND -> if (p.score >= beta) return p.score
+        UPPERBOUND -> if (p.score <= alpha) return p.score
         else -> return p.score
       }
     }
@@ -652,14 +655,14 @@ class Engine(bits: Int) {
       assert(m.second == u.move)
       pos.undoMove(u)
     }
+    h.remove(hc)
+    if (legal_moves == 0) return if (check) -MATE_SCORE + ply else 0
     if (best_move != null) {
       if (best_score < beta) cache.store(CacheSlot(hc, best_move, depth, best_score, 0, cache.getGeneration()))
       else cache.store(CacheSlot(hc, best_move, depth, best_score, LOWERBOUND, cache.getGeneration()))
     } else {
-      cache.store(CacheSlot(hc, null, depth, alpha, UPPERBOUND, cache.getGeneration()))
+      cache.store(CacheSlot(hc, p?.move, depth, alpha, UPPERBOUND, cache.getGeneration()))
     }
-    h.remove(hc)
-    if (legal_moves == 0) return if (check) -MATE_SCORE + ply else 0
     return best_score
   }
   fun root_search(pos: Position, max_depth: Int, max_nodes: Int): Pair<Move, Int> {
@@ -669,9 +672,10 @@ class Engine(bits: Int) {
     cache.incGeneration()
     for (d in 1 .. max_depth) {
       require(pos.hash() == h)
-      val alpha = ev - 50
-      val beta = ev + 50
+      val alpha = max(ev - 50, -MATE_SCORE)
+      val beta  = min(ev + 50, MATE_SCORE)
       val w = search(pos, alpha, beta, 0, d * PLY)
+      //System.err.println("w = $w")
       if (w <= alpha) {
         ev = search(pos, -MATE_SCORE, beta, 0, d * PLY)
       } else if (w >= beta) {
@@ -679,7 +683,7 @@ class Engine(bits: Int) {
       } else {
         ev = w
       }
-      System.err.println("depth: $d, nodes: $nodes")
+      //System.err.println("depth: $d, ev: $ev, nodes: $nodes")
       if (nodes >= max_nodes) break
     }
     val p = cache.probe(h)
