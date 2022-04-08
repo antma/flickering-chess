@@ -61,6 +61,9 @@ data class Move(val from: Int, val to: Int, val flags: Int) {
 }
 class UndoMove(val move: Move, val piece_from: Int, val piece_to: Int, val castle: Int, val jump: Int, val material_score: Int, val hc: Long, val fifty_move_rule: Int)
 
+private fun manhattanDistance(x: Int, y: Int): Int =
+  max(abs( (x and 15) - (y and 15)), abs((x shr 4) - (y shr 4)))
+
 class Position {
   val board = IntArray(128)
   var side = 1
@@ -183,6 +186,46 @@ class Position {
       }
     }
     return null
+  }
+  private fun pieceMobilityScore(x: Int, dir: IntArray, sliding: Boolean, king: Int, center_score: Int, near_king_score: Int, regular_score: Int): Int {
+    var s = 0
+    for (delta in dir) {
+      var y = x + delta
+      while(inside(y)) {
+        val p = board[y]
+        if (p == 0) {
+          if (manhattanDistance(king, y) <= 1) s += near_king_score
+          else if (y == 0x33 || y == 0x34 || y == 0x43 || y == 0x44) s += center_score
+          else s += regular_score
+          if (!sliding) break
+          y += delta
+        } else if (p * side < 0) {
+          if (manhattanDistance(king, y) <= 1) s += near_king_score
+          else if (y == 0x33 || y == 0x34 || y == 0x43 || y == 0x44) s += center_score
+          else s += regular_score
+          break
+        } else {
+          break
+        }
+      }
+    }
+    return s
+  }
+  fun mobilityScore(): Int {
+    var s = 0
+    for (i in (0 until 128).step(8)) for (k in i until (i + 8)) {
+      when(board[k]) {
+        KNIGHT -> s += pieceMobilityScore(k, knight_moves, false, bk, center_score = 5, near_king_score = 5, regular_score = 2)
+        -KNIGHT -> s -= pieceMobilityScore(k, knight_moves, false, wk, center_score = 5, near_king_score = 5, regular_score = 2)
+        BISHOP -> s += pieceMobilityScore(k, bishop_moves, true, bk, center_score = 5, near_king_score = 5, regular_score = 2)
+        -BISHOP -> s -= pieceMobilityScore(k, bishop_moves, true, wk, center_score = 5, near_king_score = 5, regular_score = 2)
+        ROOK -> s += pieceMobilityScore(k, rook_moves, true, bk, center_score = 5, near_king_score = 5, regular_score = 2)
+        -ROOK -> s -= pieceMobilityScore(k, rook_moves, true, wk, center_score = 5, near_king_score = 5, regular_score = 2)
+        QUEEN -> s += pieceMobilityScore(k, queen_moves, true, bk, center_score = 5, near_king_score = 5, regular_score = 2)
+        -QUEEN -> s -= pieceMobilityScore(k, queen_moves, true, wk, center_score = 5, near_king_score = 5, regular_score = 2)
+      }
+    }
+    return s
   }
   private fun enumeratePawnMoves(x: Int, op: (Move) -> Boolean): Move? {
     val i = x shr 4
@@ -557,7 +600,7 @@ class Engine(bits: Int) {
   var nodes = 0
   val h = mutableSetOf<Long>()
   fun eval(pos: Position): Int {
-    return pos.material_score * pos.side
+    return (pos.material_score + pos.mobilityScore()) * pos.side
   }
   fun qsearch(pos: Position, alpha: Int, beta: Int, ply: Int): Int {
     var legal_moves = 0
