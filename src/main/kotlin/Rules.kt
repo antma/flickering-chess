@@ -532,15 +532,15 @@ class Position {
     }
     return m != null
   }
-  fun isCheckMate(): Boolean {
-    if (!isCheck()) return false
+  fun hasAtLeastOneLegalMove(): Boolean {
     return enumerateMoves {
       val u = doMove(it)
       val res = isLegal()
       undoMove(u)
       res
-    } == null
+    } != null
   }
+  fun isCheckMate(): Boolean = isCheck() && !hasAtLeastOneLegalMove()
   fun fiftyMoveDraw() = fifty_move_rule <= 0
 }
 
@@ -552,7 +552,10 @@ class Game {
     h.add(pos.hash())
   }
   fun getResult(): String? {
-    if (pos.isCheckMate()) return (if (pos.side < 0) "White" else "Black") + " wins by checkmate."
+    if (!pos.hasAtLeastOneLegalMove()) {
+      if (pos.isCheck()) return (if (pos.side < 0) "White" else "Black") + " wins by checkmate."
+      return "Draw by stalemate."
+    }
     if (pos.fiftyMoveDraw()) return "Draw by 50-move rule"
     val x = h.lastOrNull()!!
     if (h.count { it == x } >= 3) return "Draw by 3-fold repetition"

@@ -1,11 +1,21 @@
 import kotlin.test.assertTrue
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import org.junit.Test
 
 import com.github.antma.flickering_chess.Position
 import com.github.antma.flickering_chess.Engine
+import com.github.antma.flickering_chess.Game
 
 fun doMoves(pos: Position, s: String) {
+  for (t in s.split(' ')) {
+    assertTrue(pos.doSANMove(t) != null, "doSANMove ${t} failed")
+    val v = pos.validate()
+    if (v != null) assertTrue(false, "validation failed with message '${v}' after move ${t}")
+  }
+}
+
+fun Game.doMoves(s: String) {
   for (t in s.split(' ')) {
     assertTrue(pos.doSANMove(t) != null, "doSANMove ${t} failed")
     val v = pos.validate()
@@ -85,5 +95,15 @@ class RulesTest {
     p.undoMove(u)
     val v = p.validate()
     if (v != null) assertTrue(false, "validation failed with message '${v}' after undo castling, fen = ${p.fen()}")
+  }
+  @Test
+  fun testStalemate() {
+    val g = Game()
+    g.doMoves("e2e4 b8c6 g1f3 d7d5 e4e5 e7e6 d2d4 d8e7 c2c3 g7g6 f1d3 a7a6 e1g1 f7f5 e5f6 g8f6 f1e2 g6g5 h2h3 e6e5 d4e5 f6g7")
+    g.doMoves("c1e3 g5g4 h3g4 h8g8 d3h7 e7e6 g4g5 e6f5 h7h6 g7e6 h6f6 e6f4 e3f4 f5f4 b1d2 c8g4 f3g4 f4g4 d2f3 g4c4 e2d2 e8f7")
+    g.doMoves("f3d5 c6d5 d2d5 f8c5 d5d7 f7f8 d1h5 a6a5 a1d1 a8e8 d1d5 c5f2 g1f2 c4f4 f2g1 f4e3 g1h1 e3c1 d5d1 c1d1 d7d1 g8f6")
+    g.doMoves("e5f6 b7b6 h5e8 f8e8 g5g6 c7c5 d1d6 a5a4 d6b6 a4a3 b2a3 e8d8 f6f7 d8e7 b6a4 c5c4 a4c4 e7f8 h1h2 f8g7 h2g3 g7f8")
+    g.doMoves("g3f4 f8g7 f4f5 g7f8 f5f6")
+    assertEquals(g.getResult(), "Draw by stalemate.")
   }
 }
