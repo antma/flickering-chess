@@ -124,11 +124,13 @@ class ChessBoard(val game: Game) : JFrame() {
               updateBoard()
               if (!adjudicateGame()) {
                 state = UIState.ComputeMove
-                val p = engine.root_search(game.pos, max_depth=100, max_nodes=10000)
-                require(game.doSANMove(p.first.san()))
-                System.err.println(p.first.san())
-                updateBoard()
-                if (!adjudicateGame()) state = UIState.UserMove
+                SwingUtilities.invokeLater {
+                  val p = engine.root_search(game.pos, max_depth=100, max_nodes=10000)
+                  require(game.doSANMove(p.first.san()))
+                  System.err.println(p.first.san())
+                  updateBoard()
+                  if (!adjudicateGame()) state = UIState.UserMove
+                }
               }
             } else if (c === q) {
               c.click()
