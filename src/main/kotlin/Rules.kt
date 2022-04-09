@@ -532,6 +532,16 @@ class Position {
     }
     return m != null
   }
+  fun isLegalPromotion(san: String): Boolean {
+    val m = enumerateMoves {
+      (it.flags and PROMOTION) != 0 && it.san().startsWith(san)
+    }
+    if (m == null) return false
+    val u = doMove(m)
+    val r = isLegal()
+    undoMove(u)
+    return r
+  }
   fun hasAtLeastOneLegalMove(): Boolean {
     return enumerateMoves {
       val u = doMove(it)
