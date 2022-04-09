@@ -648,7 +648,10 @@ class Engine(bits: Int) {
       val u = pos.doMove(m.second)
       if (pos.isLegal()) {
         ++legal_moves
-        val w = -qsearch(pos, -beta, -best_score, ply + 1)
+        var w = -qsearch(pos, -(best_score + 1), -best_score, ply + 1)
+        if (best_score < w && w < beta) {
+          w = -qsearch(pos, -beta, -best_score, ply + 1)
+        }
         if (best_score < w) {
           best_score = w
           if (best_score >= beta) {
@@ -709,7 +712,10 @@ class Engine(bits: Int) {
       val u = pos.doMove(m.second)
       if (pos.isLegal()) {
         legal_moves++
-        val w = -search(pos, -beta, -best_score, ply + 1, d)
+        var w = -search(pos, -(best_score + 1), -best_score, ply + 1, d)
+        if (best_score < w && w < beta) {
+          w = -search(pos, -beta, -best_score, ply + 1, d)
+        }
         if (best_score < w) {
           best_score = w
           best_move = m.second
