@@ -103,7 +103,9 @@ class PromotionPieceChooser(val chessboard: ChessBoard) : JFrame() {
   }
 }
 
-class ChessBoard(val game: Game) : JFrame() {
+class ChessBoard() : JFrame() {
+  var game = Game()
+  var max_nodes = 1
   val chooser = PromotionPieceChooser(this)
   val engine = Engine(16)
   val cells = Array(64) {
@@ -114,6 +116,9 @@ class ChessBoard(val game: Game) : JFrame() {
   fun selectedCell(): Cell? = cells.find { it.isSelected() }
   var state = UIState.UserMove
   var promotion_move: String? = null
+  private fun deselectCells() {
+    selectedCell()?.changeSelection(false)
+  }
   private fun updateBoard() {
     for (p in cells) p.updatePiece(game.pos.board[p.cell128()])
   }
@@ -126,6 +131,20 @@ class ChessBoard(val game: Game) : JFrame() {
     }
     return false
   }
+  fun newGame(level: Int) {
+    state = UIState.GameFinished
+    deselectCells()
+    max_nodes = when(level) {
+      1 -> 1
+      2 -> 100
+      else -> 10000
+    }
+    promotion_move = null
+    game = Game()
+    updateBoard()
+    state = UIState.UserMove
+    title = "Level $level"
+  }
   fun promoteTo(p: Int) {
     if (state != UIState.Promotion) return
     require(promotion_move != null)
@@ -135,7 +154,7 @@ class ChessBoard(val game: Game) : JFrame() {
     afterUserMove(t)
   }
   fun afterUserMove(t: String) {
-    selectedCell()?.changeSelection(false)
+    deselectCells()
     System.err.println(t)
     val v = game.pos.validate()
     require(v == null)
@@ -143,13 +162,26 @@ class ChessBoard(val game: Game) : JFrame() {
     if (!adjudicateGame()) {
       state = UIState.ComputeMove
       SwingUtilities.invokeLater {
-        val p = engine.root_search(game.pos, max_depth=1, max_nodes=10000)
+        val p = engine.root_search(game.pos, max_depth=100, max_nodes=max_nodes)
         require(game.doSANMove(p.first.san()))
         System.err.println(p.first.san())
         updateBoard()
         if (!adjudicateGame()) state = UIState.UserMove
       }
     }
+  }
+  private fun createMenu() {
+    val mb = JMenuBar()
+    val n = JMenu("New")
+    for (l in 1 .. 3) {
+      val i = JMenuItem("New game (Level $l)")
+      i.addActionListener {
+        newGame(l)
+      }
+      n.add(i)
+    }
+    mb.add(n)
+    jMenuBar = mb
   }
   init {
     defaultCloseOperation = JFrame.EXIT_ON_CLOSE
@@ -184,11 +216,13 @@ class ChessBoard(val game: Game) : JFrame() {
         }
       }
     }
+    createMenu()
   }
 }
 
 private fun createAndShowGUI() {
-  ChessBoard(Game())
+  val cb = ChessBoard()
+  cb.newGame(level = 1)
 }
 
 fun main() {
