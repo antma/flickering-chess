@@ -41,6 +41,14 @@ object Zobrist {
   }
 }
 
+fun pieceToPromotionCharacter(p: Int): Char = when(p) {
+  KNIGHT -> 'n'
+  BISHOP -> 'b'
+  ROOK -> 'r'
+  QUEEN -> 'q'
+  else -> '?'
+}
+
 data class Move(val from: Int, val to: Int, val flags: Int) {
   fun san(): String =
     StringBuilder(5).apply {
@@ -49,13 +57,7 @@ data class Move(val from: Int, val to: Int, val flags: Int) {
       append((((to and 15) + 97)).toChar())
       append((((to shr 4) + 49)).toChar())
       if ((flags and PROMOTION) != 0) {
-        append(when (flags and 7) {
-          KNIGHT -> 'n'
-          BISHOP -> 'b'
-          ROOK -> 'r'
-          QUEEN -> 'q'
-          else -> '?'
-        })
+        append(pieceToPromotionCharacter(flags and 7))
       }
     }.toString()
 }
@@ -769,7 +771,7 @@ class Engine(bits: Int) {
       } else {
         ev = w
       }
-      //System.err.println("depth: $d, ev: $ev, nodes: $nodes")
+      System.err.println("depth: $d, ev: $ev, nodes: $nodes")
       if (nodes >= max_nodes) break
     }
     val p = cache.probe(h)
