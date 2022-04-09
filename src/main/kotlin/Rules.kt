@@ -598,8 +598,30 @@ class Cache(bits: Int) {
   }
 }
 
+private fun pack(x: Int) = ((x shr 4) shl 3) + (x and 7)
+private fun moveIdx(m: Move): Int = (pack(m.from) shl 6) + pack(m.to)
+
+class History {
+  private val tbl = IntArray(4096)
+  private var maxv = 0
+  fun get(m: Move): Int = ((tbl[moveIdx(m)] * 65536.0) / (maxv + 1.0)).toInt()
+  fun relax() {
+    for (i in tbl.indices) {
+      tbl[i] = tbl[i] shr 1
+    }
+    maxv = maxv shr 1
+  }
+  fun moveIncr(m: Move) {
+    val k = moveIdx(m)
+    val v = tbl[k] + 1
+    tbl[k] = v
+    if (maxv < v) maxv = v
+  }
+}
+
 class Engine(bits: Int) {
   val cache = Cache(bits)
+  val history = History()
   var nodes = 0
   val h = mutableSetOf<Long>()
   fun eval(pos: Position): Int {
@@ -673,7 +695,7 @@ class Engine(bits: Int) {
       val h = if (p != null && p.move == it) {
         MATE_SCORE
       } else {
-        pos.materialScoreDelta(it)
+        pos.materialScoreDelta(it) * 65536 + history.get(it)
       }
       l.add(h to it)
       false
@@ -704,6 +726,7 @@ class Engine(bits: Int) {
     h.remove(hc)
     if (legal_moves == 0) return if (check) -MATE_SCORE + ply else 0
     if (best_move != null) {
+      history.moveIncr(best_move)
       if (best_score < beta) cache.store(CacheSlot(hc, best_move, depth, best_score, 0, cache.getGeneration()))
       else cache.store(CacheSlot(hc, best_move, depth, best_score, LOWERBOUND, cache.getGeneration()))
     } else {
@@ -716,6 +739,7 @@ class Engine(bits: Int) {
     var ev = 0
     val h = pos.hash()
     cache.incGeneration()
+    history.relax()
     for (d in 1 .. max_depth) {
       require(pos.hash() == h)
       val alpha = max(ev - 50, -MATE_SCORE)
