@@ -76,10 +76,35 @@ class Cell(cell: Int, val pos: Position): JButton() {
 enum class UIState {
   UserMove,
   ComputeMove,
-  GameFinished
+  Promotion,
+  GameFinished,
+}
+
+class PromotionPiece(c: PromotionPieceChooser, p: Int): JButton() {
+  init {
+    icon = Pieces.m.get(p)!!
+    setSize(100, 100)
+    addActionListener {
+      c.isVisible = false
+      c.chessboard.promoteTo(p)
+    }
+  }
+}
+
+class PromotionPieceChooser(val chessboard: ChessBoard) : JFrame() {
+  init {
+    title = "Promote to"
+    setSize(400, 140)
+    setLayout(GridLayout(1, 4))
+    add(PromotionPiece(this, QUEEN))
+    add(PromotionPiece(this, ROOK))
+    add(PromotionPiece(this, BISHOP))
+    add(PromotionPiece(this, KNIGHT))
+  }
 }
 
 class ChessBoard(val game: Game) : JFrame() {
+  val chooser = PromotionPieceChooser(this)
   val engine = Engine(16)
   val cells = Array(64) {
     val i = it / 8
@@ -88,6 +113,7 @@ class ChessBoard(val game: Game) : JFrame() {
   }
   fun selectedCell(): Cell? = cells.find { it.isSelected() }
   var state = UIState.UserMove
+  var promotion_move: String? = null
   private fun updateBoard() {
     for (p in cells) p.updatePiece(game.pos.board[p.cell128()])
   }
@@ -100,6 +126,31 @@ class ChessBoard(val game: Game) : JFrame() {
     }
     return false
   }
+  fun promoteTo(p: Int) {
+    if (state != UIState.Promotion) return
+    require(promotion_move != null)
+    val t = promotion_move + pieceToPromotionCharacter(p)
+    promotion_move = null
+    require(game.doSANMove(t))
+    afterUserMove(t)
+  }
+  fun afterUserMove(t: String) {
+    selectedCell()?.changeSelection(false)
+    System.err.println(t)
+    val v = game.pos.validate()
+    require(v == null)
+    updateBoard()
+    if (!adjudicateGame()) {
+      state = UIState.ComputeMove
+      SwingUtilities.invokeLater {
+        val p = engine.root_search(game.pos, max_depth=1, max_nodes=10000)
+        require(game.doSANMove(p.first.san()))
+        System.err.println(p.first.san())
+        updateBoard()
+        if (!adjudicateGame()) state = UIState.UserMove
+      }
+    }
+  }
   init {
     defaultCloseOperation = JFrame.EXIT_ON_CLOSE
     setSize(800, 800)
@@ -111,27 +162,16 @@ class ChessBoard(val game: Game) : JFrame() {
         if (state == UIState.UserMove) {
           val c = selectedCell()
           if (c != null) {
-            val t0 = StringBuilder(4).apply {
+            val t = StringBuilder(4).apply {
               append(c.s)
               append(q.s)
             }.toString()
-            val t = if (game.pos.isPromotion(t0)) t0 + "q" else t0
-            if (game.doSANMove(t)) {
-              System.err.println(t)
-              val v = game.pos.validate()
-              require(v == null)
-              c.click()
-              updateBoard()
-              if (!adjudicateGame()) {
-                state = UIState.ComputeMove
-                SwingUtilities.invokeLater {
-                  val p = engine.root_search(game.pos, max_depth=100, max_nodes=10000)
-                  require(game.doSANMove(p.first.san()))
-                  System.err.println(p.first.san())
-                  updateBoard()
-                  if (!adjudicateGame()) state = UIState.UserMove
-                }
-              }
+            if (game.pos.isLegalPromotion(t)) {
+              promotion_move = t
+              state = UIState.Promotion
+              chooser.isVisible = true
+            } else if (game.doSANMove(t)) {
+              afterUserMove(t)
             } else if (c === q) {
               c.click()
             } else if (q.piece.sign * c.piece.sign > 0) {
