@@ -146,7 +146,6 @@ class Position {
     if (side < 0) x = x xor Zobrist.a[1688]
     return x
   }
-  fun cell(x: Int) = if (inside(x)) 0 else board[x]
   fun role(x: Int): Int {
     val p = board[x]
     if (isFlickeringPiece(p)) {
@@ -528,12 +527,6 @@ class Position {
     if (hc != h) return "hc expected - ${h}, field value - ${hc}"
     return null
   }
-  fun isPromotion(san: String): Boolean {
-    val m = enumerateMoves {
-      (it.flags and PROMOTION) != 0 && it.san().startsWith(san)
-    }
-    return m != null
-  }
   fun isLegalPromotion(san: String): Boolean {
     val m = enumerateMoves {
       (it.flags and PROMOTION) != 0 && it.san().startsWith(san)
@@ -680,21 +673,11 @@ class Engine(bits: Int) {
     return best_score
   }
   fun search(pos: Position, alpha: Int, beta: Int, ply: Int, depth: Int): Int {
-    assert(alpha < beta) { "alpha = $alpha, beta = $beta, ply = $ply, depth = $depth"}
     nodes++
-    /*
-    System.err.println("search(pos: ${pos.fen()}, alpha: ${alpha}, beta: ${beta}, ply: ${ply}, depth: ${depth})")
-    val v = pos.validate()
-    if (v != null) {
-      System.err.println("search(pos: ${pos.fen()}, alpha: ${alpha}, beta: ${beta}, ply: ${ply}, depth: ${depth}), $v")
-      require(false)
-    }
-    */
     val hc = pos.hash()
     //draw
     if ((hc in h) || pos.fiftyMoveDraw()) return 0
     if (depth <= 0) return qsearch(pos, alpha, beta, ply)
-    //if (depth <= 0) return qsearch(pos, alpha, beta, ply)
     val p = cache.probe(hc)
     if (p != null && p.depth >= depth) {
       when(p.flags) {
@@ -732,13 +715,11 @@ class Engine(bits: Int) {
           best_score = w
           best_move = m.second
           if (best_score >= beta) {
-            assert(m.second == u.move)
             pos.undoMove(u)
             break
           }
         }
       }
-      assert(m.second == u.move)
       pos.undoMove(u)
     }
     h.remove(hc)
@@ -752,18 +733,18 @@ class Engine(bits: Int) {
     }
     return best_score
   }
-  fun root_search(pos: Position, max_depth: Int, max_nodes: Int): Pair<Move, Int> {
+  fun root_search(pos: Position, max_depth: Int, max_nodes: Int): Triple<Move, Int, String> {
     nodes = 0
     var ev = 0
     val h = pos.hash()
     cache.incGeneration()
     history.relax()
+    val sb = StringBuilder()
     for (d in 1 .. max_depth) {
       require(pos.hash() == h)
       val alpha = max(ev - 50, -MATE_SCORE)
       val beta  = min(ev + 50, MATE_SCORE)
       val w = search(pos, alpha, beta, 0, d * PLY)
-      //System.err.println("w = $w")
       if (w <= alpha) {
         ev = search(pos, -MATE_SCORE, beta, 0, d * PLY)
       } else if (w >= beta) {
@@ -771,11 +752,11 @@ class Engine(bits: Int) {
       } else {
         ev = w
       }
-      System.err.println("depth: $d, ev: $ev, nodes: $nodes")
+      sb.append("depth: $d, ev: $ev, nodes: $nodes\n")
       if (nodes >= max_nodes) break
     }
     val p = cache.probe(h)
     require(p != null)
-    return p.move!! to ev
+    return Triple(p.move!!, ev, sb.toString())
   }
 }
