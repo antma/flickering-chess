@@ -374,6 +374,15 @@ class Position {
     }
     return null
   }
+  fun enumerateLegalMoves(op: (Move) -> Boolean): Move? {
+    enumerateMoves { m ->
+      val u = doMove(m)
+      val r = isLegal()
+      undoMove(u)
+      r && op(m)
+    }
+    return null
+  }
   fun isLegal(): Boolean = if (side < 0) !isAttacked(wk, -1) else !isAttacked(bk, 1)
   fun isCheck(): Boolean = if (side > 0) isAttacked(wk, -1) else isAttacked(bk, 1)
   fun materialScoreDelta(m: Move): Int {
