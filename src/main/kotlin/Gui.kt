@@ -125,7 +125,14 @@ class ChessBoard() : JFrame() {
   private fun adjudicateGame(): Boolean {
     val r = game.getResult()
     if (r != null) {
-      title = r
+      title = when(r) {
+        GameResult.WhiteWins -> "White wins by checkmate."
+        GameResult.BlackWins -> "Black wins by checkmate."
+        GameResult.Stalemate -> "Draw by stalemate."
+        GameResult.FiftyMoveRule -> "Draw by 50 moves rule."
+        GameResult.ThreeFold -> "Draw by 3-fold repetition."
+        GameResult.InsufficientMaterial -> "Draw by insufficient material."
+      }
       state = UIState.GameFinished
       return true
     }

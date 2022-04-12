@@ -6,6 +6,7 @@ import org.junit.Test
 import com.github.antma.flickering_chess.Position
 import com.github.antma.flickering_chess.Engine
 import com.github.antma.flickering_chess.Game
+import com.github.antma.flickering_chess.GameResult
 
 fun Position.doMoves(s: String) {
   for (t in s.split(' ')) {
@@ -104,7 +105,7 @@ class RulesTest {
     g.doMoves("f3d5 c6d5 d2d5 f8c5 d5d7 f7f8 d1h5 a6a5 a1d1 a8e8 d1d5 c5f2 g1f2 c4f4 f2g1 f4e3 g1h1 e3c1 d5d1 c1d1 d7d1 g8f6")
     g.doMoves("e5f6 b7b6 h5e8 f8e8 g5g6 c7c5 d1d6 a5a4 d6b6 a4a3 b2a3 e8d8 f6f7 d8e7 b6a4 c5c4 a4c4 e7f8 h1h2 f8g7 h2g3 g7f8")
     g.doMoves("g3f4 f8g7 f4f5 g7f8 f5f6")
-    assertEquals(g.getResult(), "Draw by stalemate.")
+    assertEquals(g.getResult(), GameResult.Stalemate)
   }
   @Test
   fun testIsLegalPromotion() {

@@ -549,6 +549,15 @@ class Position {
   fun fiftyMoveDraw() = fifty_move_rule <= 0
 }
 
+enum class GameResult {
+  WhiteWins,
+  BlackWins,
+  Stalemate,
+  FiftyMoveRule,
+  ThreeFold,
+  InsufficientMaterial
+}
+
 class Game {
   private val moves = ArrayList<Move>()
   private val h = ArrayList<Long>()
@@ -556,14 +565,15 @@ class Game {
   init {
     h.add(pos.hash())
   }
-  fun getResult(): String? {
+  fun getResult(): GameResult? {
     if (!pos.hasAtLeastOneLegalMove()) {
-      if (pos.isCheck()) return (if (pos.side < 0) "White" else "Black") + " wins by checkmate."
-      return "Draw by stalemate."
+      if (pos.isCheck()) return if (pos.side < 0) GameResult.WhiteWins else GameResult.BlackWins
+      return GameResult.Stalemate
     }
-    if (pos.fiftyMoveDraw()) return "Draw by 50-move rule"
+    if (pos.fiftyMoveDraw()) return GameResult.FiftyMoveRule
     val x = h.lastOrNull()!!
-    if (h.count { it == x } >= 3) return "Draw by 3-fold repetition"
+    if (h.count { it == x } >= 3) return GameResult.ThreeFold
+    if (pos.material_score == 0 && pos.board.all { it == 0 || abs(it) == KING}) return GameResult.InsufficientMaterial
     return null
   }
   fun doSANMove(san: String): Boolean {

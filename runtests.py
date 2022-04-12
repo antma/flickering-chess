@@ -7,7 +7,7 @@ BUILD_DIR="build"
 RUNNER='org.junit.runner.JUnitCore'
 ev = environment_vars
 
-lst_classpath = [os.path.join(ev.KOTLIN_LIB, 'kotlin-test.jar'), ev.JUNIT4_JAR,  ev.HAMCREST_CORE_JAR, \
+lst_classpath = [os.path.join(ev.KOTLIN_LIB, 'kotlin-stdlib.jar'), os.path.join(ev.KOTLIN_LIB, 'kotlin-test.jar'), ev.JUNIT4_JAR,  ev.HAMCREST_CORE_JAR, \
 os.path.join(BUILD_DIR, 'flickering-chess.jar'), os.path.join(BUILD_DIR, 'flickering-chess-test.jar')]
 classpath = ':'.join(lst_classpath)
 tests = []
