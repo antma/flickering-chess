@@ -648,6 +648,14 @@ class Engine(bits: Int) {
   val history = History()
   var nodes = 0
   val h = mutableSetOf<Long>()
+  private var max_depth = 1
+  private var max_nodes = 0
+  private var use_qsearch = true
+  fun setParams(max_depth: Int, max_nodes: Int, use_qsearch: Boolean) {
+    this.max_depth = max_depth
+    this.max_nodes = max_nodes
+    this.use_qsearch = use_qsearch
+  }
   fun eval(pos: Position): Int {
     return (pos.material_score + pos.mobilityScore()) * pos.side
   }
@@ -696,7 +704,7 @@ class Engine(bits: Int) {
     val hc = pos.hash()
     //draw
     if ((hc in h) || pos.fiftyMoveDraw()) return 0
-    if (depth <= 0) return qsearch(pos, alpha, beta, ply)
+    if (depth <= 0) return if (use_qsearch) qsearch(pos, alpha, beta, ply) else eval(pos)
     val p = cache.probe(hc)
     if (p != null && p.depth >= depth) {
       when(p.flags) {
@@ -752,7 +760,7 @@ class Engine(bits: Int) {
     }
     return best_score
   }
-  fun root_search(pos: Position, max_depth: Int, max_nodes: Int): Triple<Move, Int, String> {
+  fun root_search(pos: Position): Triple<Move, Int, String> {
     nodes = 0
     var ev = 0
     val h = pos.hash()

@@ -169,7 +169,8 @@ class ChessBoard() : JFrame() {
     if (!adjudicateGame()) {
       state = UIState.ComputeMove
       SwingUtilities.invokeLater {
-        val p = engine.root_search(game.pos, max_depth=100, max_nodes=max_nodes)
+        engine.setParams(max_depth=100, max_nodes=max_nodes, use_qsearch = true)
+        val p = engine.root_search(game.pos)
         require(game.doSANMove(p.first.san()))
         System.err.println(p.first.san())
         updateBoard()
