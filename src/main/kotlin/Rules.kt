@@ -69,13 +69,13 @@ private fun manhattanDistance(x: Int, y: Int): Int =
 class Position {
   val board = IntArray(128)
   var side = 1
-  var castle = 15
-  var jump = -1
-  var wk = 0x04
-  var bk = 0x74
-  var material_score = 0
+  private var castle = 15
+  private var jump = -1
+  private var wk = 0x04
+  private var bk = 0x74
+  var materialScore = 0
   private var hc = 0L
-  private var fifty_move_rule = 100
+  private var fiftyMoveRule = 100
   private fun hcUpdate(k: Int) {
     val p = board[k]
     if (p != 0) {
@@ -146,7 +146,7 @@ class Position {
     if (side < 0) x = x xor Zobrist.a[1688]
     return x
   }
-  fun role(x: Int): Int {
+  private fun role(x: Int): Int {
     val p = board[x]
     if (isFlickeringPiece(p)) {
       return if (p > 0) {
@@ -195,15 +195,15 @@ class Position {
       while(inside(y)) {
         val p = board[y]
         if (p == 0) {
-          if (manhattanDistance(king, y) <= 1) s += near_king_score
-          else if (y == 0x33 || y == 0x34 || y == 0x43 || y == 0x44) s += center_score
-          else s += regular_score
+          s += if (manhattanDistance(king, y) <= 1) near_king_score
+          else if (y == 0x33 || y == 0x34 || y == 0x43 || y == 0x44) center_score
+          else regular_score
           if (!sliding) break
           y += delta
         } else if (p * side < 0) {
-          if (manhattanDistance(king, y) <= 1) s += near_king_score
-          else if (y == 0x33 || y == 0x34 || y == 0x43 || y == 0x44) s += center_score
-          else s += regular_score
+          s += if (manhattanDistance(king, y) <= 1) near_king_score
+          else if (y == 0x33 || y == 0x34 || y == 0x43 || y == 0x44) center_score
+          else regular_score
           break
         } else {
           break
@@ -231,13 +231,13 @@ class Position {
   private fun enumeratePawnMoves(x: Int, op: (Move) -> Boolean): Move? {
     val i = x shr 4
     val j = x and 15
-    val rank_before_promotion = if (side > 0) 6 else 1
-    val forth_rank = if (side > 0) 4 else 3
-    val first_rank = rank_before_promotion xor 7
+    val rankBeforePromotion = if (side > 0) 6 else 1
+    val forthRank = if (side > 0) 4 else 3
+    val firstRank = rankBeforePromotion xor 7
     val captures = if (side > 0) white_pawn_captures else black_pawn_captures
     val y = x + 16 * side
     if (board[y] == 0) {
-      if (i == rank_before_promotion) {
+      if (i == rankBeforePromotion) {
         for (k in KNIGHT .. QUEEN) {
           val m = Move(x, y, k + PROMOTION)
           if (op(m)) return m
@@ -247,11 +247,11 @@ class Position {
         if (op(m)) return m
       }
     }
-    if (i == first_rank && board[x + 16 * side] == 0 && board[x + 32 * side] == 0) {
+    if (i == firstRank && board[x + 16 * side] == 0 && board[x + 32 * side] == 0) {
       val m = Move(x, x + 32 * side, PAWN_JUMP)
       if (op(m)) return m
     }
-    if (jump >= 0 && i == forth_rank && abs(j - jump) == 1) {
+    if (jump >= 0 && i == forthRank && abs(j - jump) == 1) {
       val m = Move(x, i * 16 + 16 * side + jump, CAPTURE + EN_PASSANT)
       if (op(m)) return m
     }
@@ -259,7 +259,7 @@ class Position {
       val z = x + delta
       if (!inside(z)) continue
       if (board[z] * side < 0) {
-        if (i == rank_before_promotion) {
+        if (i == rankBeforePromotion) {
           for (k in KNIGHT .. QUEEN) {
             val m = Move(x, z, k + (PROMOTION + CAPTURE))
             if (op(m)) return m
@@ -386,8 +386,8 @@ class Position {
   fun isLegal(): Boolean = if (side < 0) !isAttacked(wk, -1) else !isAttacked(bk, 1)
   fun isCheck(): Boolean = if (side > 0) isAttacked(wk, -1) else isAttacked(bk, 1)
   fun materialScoreDelta(m: Move): Int {
-    if ((m.flags and EN_PASSANT) != 0) {
-      return tbl_material_score_delta[PAWN]
+    return if ((m.flags and EN_PASSANT) != 0) {
+      tbl_material_score_delta[PAWN]
     } else {
       var ms = 0
       if ((m.flags and PROMOTION) != 0) {
@@ -397,7 +397,7 @@ class Position {
       if (p != 0) {
         ms += tbl_material_score_delta[abs(p)]
       }
-      return ms
+      ms
     }
   }
   fun doMove(m: Move): UndoMove {
@@ -405,8 +405,8 @@ class Position {
     val p = board[m.from]
     if (p == KING) wk = m.to
     else if (p == -KING) bk = m.to
-    val u = UndoMove(m, p, board[m.to], castle, jump, material_score, hc, fifty_move_rule)
-    material_score += side * materialScoreDelta(m)
+    val u = UndoMove(m, p, board[m.to], castle, jump, materialScore, hc, fiftyMoveRule)
+    materialScore += side * materialScoreDelta(m)
     hcUpdate(m.from)
     hcUpdate(m.to)
     board[m.from] = 0
@@ -456,8 +456,8 @@ class Position {
       hcUpdate(k)
       board[k] = 0
     }
-    fifty_move_rule--
-    if ((m.flags and CAPTURE) != 0 || abs(u.piece_from) == PAWN) fifty_move_rule = 100
+    fiftyMoveRule--
+    if ((m.flags and CAPTURE) != 0 || abs(u.piece_from) == PAWN) fiftyMoveRule = 100
     side *= -1
     return u
   }
@@ -470,9 +470,9 @@ class Position {
     board[m.to] = u.piece_to
     castle = u.castle
     jump = u.jump
-    material_score = u.material_score
+    materialScore = u.material_score
     hc = u.hc
-    fifty_move_rule = u.fifty_move_rule
+    fiftyMoveRule = u.fifty_move_rule
     if ((m.flags and CASTLING) != 0) {
       when (m.to) {
         0x02 -> {
@@ -511,8 +511,7 @@ class Position {
     //System.err.println("doSANMove: $san")
     val m = enumerateMoves {
       it.san() == san
-    }
-    if (m == null) return null
+    } ?: return null
     val u = doMove(m)
     if (!isLegal()) {
       undoMove(u)
@@ -532,15 +531,14 @@ class Position {
         h = h xor Zobrist.a[(KING + p) * 128 + k]
       }
     }
-    if (material_score != ms) return "Material Score expected - ${ms}, field value - ${material_score}"
-    if (hc != h) return "hc expected - ${h}, field value - ${hc}"
+    if (materialScore != ms) return "Material Score expected - $ms, field value - $materialScore"
+    if (hc != h) return "hc expected - ${h}, field value - $hc"
     return null
   }
   fun isLegalPromotion(san: String): Boolean {
     val m = enumerateMoves {
       (it.flags and PROMOTION) != 0 && it.san().startsWith(san)
-    }
-    if (m == null) return false
+    } ?: return false
     val u = doMove(m)
     val r = isLegal()
     undoMove(u)
@@ -555,7 +553,7 @@ class Position {
     } != null
   }
   fun isCheckMate(): Boolean = isCheck() && !hasAtLeastOneLegalMove()
-  fun fiftyMoveDraw() = fifty_move_rule <= 0
+  fun fiftyMoveDraw() = fiftyMoveRule <= 0
 }
 
 enum class GameResult {
@@ -582,12 +580,11 @@ class Game {
     if (pos.fiftyMoveDraw()) return GameResult.FiftyMoveRule
     val x = h.lastOrNull()!!
     if (h.count { it == x } >= 3) return GameResult.ThreeFold
-    if (pos.material_score == 0 && pos.board.all { it == 0 || abs(it) == KING}) return GameResult.InsufficientMaterial
+    if (pos.materialScore == 0 && pos.board.all { it == 0 || abs(it) == KING}) return GameResult.InsufficientMaterial
     return null
   }
   fun doSANMove(san: String): Boolean {
-    val p = pos.doSANMove(san)
-    if (p == null) return false
+    val p = pos.doSANMove(san) ?: return false
     moves.add(p.move)
     h.add(pos.hash())
     return true
@@ -644,49 +641,49 @@ class History {
 }
 
 class Engine(bits: Int) {
-  val cache = Cache(bits)
-  val history = History()
-  var nodes = 0
-  val h = mutableSetOf<Long>()
-  private var max_depth = 1
-  private var max_nodes = 0
-  private var use_qsearch = true
+  private val cache = Cache(bits)
+  private val history = History()
+  private var nodes = 0
+  private val h = mutableSetOf<Long>()
+  private var maxDepth = 1
+  private var maxNodes = 0
+  private var useQSearch = true
   fun setParams(max_depth: Int, max_nodes: Int, use_qsearch: Boolean) {
-    this.max_depth = max_depth
-    this.max_nodes = max_nodes
-    this.use_qsearch = use_qsearch
+    this.maxDepth = max_depth
+    this.maxNodes = max_nodes
+    this.useQSearch = use_qsearch
   }
-  fun eval(pos: Position): Int {
-    return (pos.material_score + pos.mobilityScore()) * pos.side
+  private fun eval(pos: Position): Int {
+    return (pos.materialScore + pos.mobilityScore()) * pos.side
   }
-  fun qsearch(pos: Position, alpha: Int, beta: Int, ply: Int): Int {
-    var legal_moves = 0
+  private fun qsearch(pos: Position, alpha: Int, beta: Int, ply: Int): Int {
+    var legalMoves = 0
     val l = mutableListOf<Pair<Int, Move>>()
     pos.enumerateMoves {
       if ((it.flags and (CAPTURE + PROMOTION)) != 0) {
         l.add(pos.materialScoreDelta(it) to it)
-      } else if (legal_moves == 0) {
+      } else if (legalMoves == 0) {
         val u = pos.doMove(it)
-        if (pos.isLegal()) ++legal_moves
+        if (pos.isLegal()) ++legalMoves
         pos.undoMove(u)
       }
       false
     }
     l.sortByDescending { it.first }
     val ev = eval(pos)
-    if (legal_moves > 0 && ev >= beta) return ev
-    var best_score = kotlin.math.max(alpha, ev)
+    if (legalMoves > 0 && ev >= beta) return ev
+    var bestScore = max(alpha, ev)
     for (m in l) {
       val u = pos.doMove(m.second)
       if (pos.isLegal()) {
-        ++legal_moves
-        var w = -qsearch(pos, -(best_score + 1), -best_score, ply + 1)
-        if (best_score < w && w < beta) {
-          w = -qsearch(pos, -beta, -best_score, ply + 1)
+        ++legalMoves
+        var w = -qsearch(pos, -(bestScore + 1), -bestScore, ply + 1)
+        if (bestScore < w && w < beta) {
+          w = -qsearch(pos, -beta, -bestScore, ply + 1)
         }
-        if (best_score < w) {
-          best_score = w
-          if (best_score >= beta) {
+        if (bestScore < w) {
+          bestScore = w
+          if (bestScore >= beta) {
             pos.undoMove(u)
             break
           }
@@ -694,17 +691,17 @@ class Engine(bits: Int) {
       }
       pos.undoMove(u)
     }
-    if (legal_moves == 0) {
+    if (legalMoves == 0) {
       return if (pos.isCheck()) -MATE_SCORE + ply else 0
     }
-    return best_score
+    return bestScore
   }
-  fun search(pos: Position, alpha: Int, beta: Int, ply: Int, depth: Int): Int {
+  private fun search(pos: Position, alpha: Int, beta: Int, ply: Int, depth: Int): Int {
     nodes++
     val hc = pos.hash()
     //draw
     if ((hc in h) || pos.fiftyMoveDraw()) return 0
-    if (depth <= 0) return if (use_qsearch) qsearch(pos, alpha, beta, ply) else eval(pos)
+    if (depth <= 0) return if (useQSearch) qsearch(pos, alpha, beta, ply) else eval(pos)
     val p = cache.probe(hc)
     if (p != null && p.depth >= depth) {
       when(p.flags) {
@@ -727,21 +724,21 @@ class Engine(bits: Int) {
     }
     l.sortByDescending { it.first }
     h.add(hc)
-    var best_score = alpha
-    var legal_moves = 0
-    var best_move: Move? = null
+    var bestScore = alpha
+    var legalMoves = 0
+    var bestMove: Move? = null
     for (m in l) {
       val u = pos.doMove(m.second)
       if (pos.isLegal()) {
-        legal_moves++
-        var w = -search(pos, -(best_score + 1), -best_score, ply + 1, d)
-        if (best_score < w && w < beta) {
-          w = -search(pos, -beta, -best_score, ply + 1, d)
+        legalMoves++
+        var w = -search(pos, -(bestScore + 1), -bestScore, ply + 1, d)
+        if (bestScore < w && w < beta) {
+          w = -search(pos, -beta, -bestScore, ply + 1, d)
         }
-        if (best_score < w) {
-          best_score = w
-          best_move = m.second
-          if (best_score >= beta) {
+        if (bestScore < w) {
+          bestScore = w
+          bestMove = m.second
+          if (bestScore >= beta) {
             pos.undoMove(u)
             break
           }
@@ -750,37 +747,34 @@ class Engine(bits: Int) {
       pos.undoMove(u)
     }
     h.remove(hc)
-    if (legal_moves == 0) return if (check) -MATE_SCORE + ply else 0
-    if (best_move != null) {
-      history.moveIncr(best_move)
-      if (best_score < beta) cache.store(CacheSlot(hc, best_move, depth, best_score, 0, cache.getGeneration()))
-      else cache.store(CacheSlot(hc, best_move, depth, best_score, LOWERBOUND, cache.getGeneration()))
+    if (legalMoves == 0) return if (check) -MATE_SCORE + ply else 0
+    if (bestMove != null) {
+      history.moveIncr(bestMove)
+      if (bestScore < beta) cache.store(CacheSlot(hc, bestMove, depth, bestScore, 0, cache.getGeneration()))
+      else cache.store(CacheSlot(hc, bestMove, depth, bestScore, LOWERBOUND, cache.getGeneration()))
     } else {
       cache.store(CacheSlot(hc, p?.move, depth, alpha, UPPERBOUND, cache.getGeneration()))
     }
-    return best_score
+    return bestScore
   }
-  fun root_search(pos: Position): Triple<Move, Int, String> {
+  fun rootSearch(pos: Position): Triple<Move, Int, String> {
     nodes = 0
     var ev = 0
     val h = pos.hash()
     cache.incGeneration()
     history.relax()
     val sb = StringBuilder()
-    for (d in 1 .. max_depth) {
+    for (d in 1 .. maxDepth) {
       require(pos.hash() == h)
       val alpha = max(ev - 50, -MATE_SCORE)
       val beta  = min(ev + 50, MATE_SCORE)
       val w = search(pos, alpha, beta, 0, d * PLY)
-      if (w <= alpha) {
-        ev = search(pos, -MATE_SCORE, beta, 0, d * PLY)
-      } else if (w >= beta) {
-        ev = search(pos, alpha, MATE_SCORE, 0, d * PLY)
-      } else {
-        ev = w
-      }
+      ev =
+        if (w <= alpha) search(pos, -MATE_SCORE, beta, 0, d * PLY)
+        else if (w >= beta) search(pos, alpha, MATE_SCORE, 0, d * PLY)
+        else w
       sb.append("depth: $d, ev: $ev, nodes: $nodes\n")
-      if (nodes >= max_nodes) break
+      if (nodes >= maxNodes) break
     }
     val p = cache.probe(h)
     require(p != null)

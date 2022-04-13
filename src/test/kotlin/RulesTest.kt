@@ -46,31 +46,11 @@ class RulesTest {
     assertTrue(p.isCheck())
     assertTrue(p.isCheckMate())
   }
-  //@Test
-  fun testEngine() {
-    val p = Position()
-    p.doMoves("e2e4 a7a6 d2d4 c7c6 g1f3 b7b5 c2c4 b5c4 f1c4 d7d6 e1g1 e7e6 f1e2 a6a5 d4d5 d8b6 d5e6")
-    val e = Engine(16)
-    val m = e.root_search(p, max_depth = 5, max_nodes = Int.MAX_VALUE)
-    val v = p.validate()
-    if (v != null) assertTrue(false, "validation failed with message '${v}' after root search")
-    assertTrue(p.doSANMove(m.first.san()) != null)
-  }
   @Test
   fun testIsLegal() {
     val p = Position()
     p.doMoves("e2e4 a7a6 d2d4 c7c6 g1f3 b7b5 b1c3 g8f6 e1e2 f6d4")
     assertTrue(p.doSANMove("c3d2") == null)
-  }
-  //@Test
-  fun testEngine2() {
-    val p = Position()
-    p.doMoves("e2e4 a7a6 d2d4 c7c6 g1f3 b7b5 b1c3")
-    val e = Engine(16)
-    val m = e.root_search(p, max_depth = 5, max_nodes = Int.MAX_VALUE)
-    val v = p.validate()
-    if (v != null) assertTrue(false, "validation failed with message '${v}' after root search")
-    assertTrue(p.doSANMove(m.first.san()) != null)
   }
   @Test
   fun testEngine3() {
@@ -82,7 +62,8 @@ class RulesTest {
     p.doMoves("d6e6 a7d7 h3d3 c5c4 d3c5 e8d6 c5d6 d7e6 g6e6 c4c3 b2c3 g7g6 c3c4 f8g7 e6f7 g7h6")
     p.doMoves("h2h4 g8f6 f7f6 h8e8 g5f7 e8e1 g1h2 e1h1 h2h1")
     val e = Engine(16)
-    val m = e.root_search(p, max_depth = 6, max_nodes = Int.MAX_VALUE)
+    e.setParams(6, Int.MAX_VALUE, true)
+    val m = e.rootSearch(p)
     val v = p.validate()
     if (v != null) assertTrue(false, "validation failed with message '${v}' after root search")
     assertTrue(p.doSANMove(m.first.san()) != null)
