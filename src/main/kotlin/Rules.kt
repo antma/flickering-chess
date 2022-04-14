@@ -73,7 +73,7 @@ class Position {
   private var jump = -1
   private var wk = 0x04
   private var bk = 0x74
-  var materialScore = 0
+  private var materialScore = 0
   private var hc = 0L
   private var fiftyMoveRule = 100
   private fun hcUpdate(k: Int) {
@@ -212,7 +212,7 @@ class Position {
     }
     return s
   }
-  fun mobilityScore(): Int {
+  private fun mobilityScore(): Int {
     var s = 0
     for (i in (0 until 128).step(8)) for (k in i until (i + 8)) {
       when(board[k]) {
@@ -228,6 +228,18 @@ class Position {
     }
     return s
   }
+  private fun pawnScore(): Int {
+    var s = 0
+    for (file in 0 until 8) {
+      //pass pawns
+      if (board[0x60+file] == PAWN) s += 50
+      if (board[0x10+file] == -PAWN) s -= 50
+      if (board[0x50+file] == PAWN && board[0x60+file] != -PAWN) s += 25
+      if (board[0x20+file] == -PAWN && board[0x10+file] != PAWN) s -= 25
+    }
+    return s
+  }
+  fun eval(): Int = (materialScore + mobilityScore() + pawnScore()) * side
   private fun enumeratePawnMoves(x: Int, op: (Move) -> Boolean): Move? {
     val i = x shr 4
     val j = x and 15
@@ -554,6 +566,8 @@ class Position {
   }
   fun isCheckMate(): Boolean = isCheck() && !hasAtLeastOneLegalMove()
   fun fiftyMoveDraw() = fiftyMoveRule <= 0
+  fun insufficientMaterial(): Boolean =
+    materialScore == 0 && board.all { it == 0 || abs(it) == KING}
 }
 
 enum class GameResult {
@@ -580,7 +594,7 @@ class Game {
     if (pos.fiftyMoveDraw()) return GameResult.FiftyMoveRule
     val x = h.lastOrNull()!!
     if (h.count { it == x } >= 3) return GameResult.ThreeFold
-    if (pos.materialScore == 0 && pos.board.all { it == 0 || abs(it) == KING}) return GameResult.InsufficientMaterial
+    if (pos.insufficientMaterial()) return GameResult.InsufficientMaterial
     return null
   }
   fun doSANMove(san: String): Boolean {
@@ -594,6 +608,7 @@ class Game {
 const val MATE_SCORE: Int = 30_000
 const val PLY: Int = 10
 const val CHECK_EXTENTION = PLY
+const val PAWN_PUSH_TO_SEVEN_RANK_EXTENTION = PLY
 
 const val LOWERBOUND = 1
 const val UPPERBOUND = 2
@@ -653,9 +668,6 @@ class Engine(bits: Int) {
     this.maxNodes = max_nodes
     this.useQSearch = use_qsearch
   }
-  private fun eval(pos: Position): Int {
-    return (pos.materialScore + pos.mobilityScore()) * pos.side
-  }
   private fun qsearch(pos: Position, alpha: Int, beta: Int, ply: Int): Int {
     var legalMoves = 0
     val l = mutableListOf<Pair<Int, Move>>()
@@ -670,7 +682,7 @@ class Engine(bits: Int) {
       false
     }
     l.sortByDescending { it.first }
-    val ev = eval(pos)
+    val ev = pos.eval()
     if (legalMoves > 0 && ev >= beta) return ev
     var bestScore = max(alpha, ev)
     for (m in l) {
@@ -701,7 +713,7 @@ class Engine(bits: Int) {
     val hc = pos.hash()
     //draw
     if ((hc in h) || pos.fiftyMoveDraw()) return 0
-    if (depth <= 0) return if (useQSearch) qsearch(pos, alpha, beta, ply) else eval(pos)
+    if (depth <= 0) return if (useQSearch) qsearch(pos, alpha, beta, ply) else pos.eval()
     val p = cache.probe(hc)
     if (p != null && p.depth >= depth) {
       when(p.flags) {
@@ -711,7 +723,7 @@ class Engine(bits: Int) {
       }
     }
     val check = pos.isCheck()
-    val d = (if (check) depth + CHECK_EXTENTION else depth) - PLY
+    val posExt = if (check) CHECK_EXTENTION else 0
     val l = mutableListOf<Pair<Int, Move>>()
     pos.enumerateMoves {
       val h = if (p != null && p.move == it) {
@@ -728,9 +740,16 @@ class Engine(bits: Int) {
     var legalMoves = 0
     var bestMove: Move? = null
     for (m in l) {
-      val u = pos.doMove(m.second)
+      val move = m.second
+      val u = pos.doMove(move)
       if (pos.isLegal()) {
         legalMoves++
+        var ext = posExt
+        val toFile = move.to shr 4
+        val pawnPush = (pos.side < 0 && toFile == 6 && pos.board[move.to] == PAWN) ||
+                       (pos.side > 0 && toFile == 1 && pos.board[move.to] == -PAWN)
+        if (pawnPush && ext < PAWN_PUSH_TO_SEVEN_RANK_EXTENTION) ext = PAWN_PUSH_TO_SEVEN_RANK_EXTENTION
+        val d = depth + ext - PLY
         var w = -search(pos, -(bestScore + 1), -bestScore, ply + 1, d)
         if (bestScore < w && w < beta) {
           w = -search(pos, -beta, -bestScore, ply + 1, d)
