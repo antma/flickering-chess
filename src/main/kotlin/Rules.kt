@@ -744,12 +744,14 @@ class Engine(bits: Int) {
   private var maxDepth = 1
   private var maxNodes = 0
   private var useQSearch = true
+  private var rootBestMove: Move? = null
   fun setParams(max_depth: Int, max_nodes: Int, use_qsearch: Boolean) {
     this.maxDepth = max_depth
     this.maxNodes = max_nodes
     this.useQSearch = use_qsearch
   }
   private fun qsearch(pos: Position, alpha: Int, beta: Int, ply: Int): Int {
+    if (alpha >= MATE_SCORE - (ply + 1)) return alpha
     var legalMoves = 0
     val l = mutableListOf<Pair<Int, Move>>()
     pos.enumerateMoves {
@@ -790,6 +792,7 @@ class Engine(bits: Int) {
     return bestScore
   }
   private fun search(pos: Position, alpha: Int, beta: Int, ply: Int, depth: Int): Int {
+    if (alpha >= MATE_SCORE - (ply + 1)) return alpha
     nodes++
     val hc = pos.hash()
     //draw
@@ -846,6 +849,7 @@ class Engine(bits: Int) {
       }
       pos.undoMove(u)
     }
+    if (ply == 0) rootBestMove = bestMove
     h.remove(hc)
     if (legalMoves == 0) return if (check) -MATE_SCORE + ply else 0
     if (bestMove != null) {
@@ -858,6 +862,7 @@ class Engine(bits: Int) {
     return bestScore
   }
   fun rootSearch(pos: Position): Pair<Move?, String> {
+    rootBestMove = null
     nodes = 0
     var ev = 0
     val h = pos.hash()
@@ -876,9 +881,6 @@ class Engine(bits: Int) {
       sb.append("depth: $d, ev: $ev, nodes: $nodes\n")
       if (nodes >= maxNodes) break
     }
-    val p = cache.probe(h)
-    val s = sb.toString()
-    if (p == null) return null to s
-    return p.move to s
+    return rootBestMove to sb.toString()
   }
 }
