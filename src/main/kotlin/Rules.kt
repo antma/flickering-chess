@@ -128,9 +128,11 @@ class Position(position_fen: String = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKB
     if (wk < 0) throw IllegalArgumentException("white king is absent")
     if (bk < 0) throw IllegalArgumentException("black king is absent")
     val color = l[1]
-    if (color == "w") side = 1
-    else if (color == "b") side = -1
-    else throw IllegalArgumentException("illegal color")
+    side = when (color) {
+      "w" -> 1
+      "b" -> -1
+      else -> throw IllegalArgumentException("illegal color")
+    }
     if (l[2] != "-") {
       for (c in l[2]) {
         castle = castle or when(c) {
@@ -153,8 +155,7 @@ class Position(position_fen: String = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKB
         throw IllegalArgumentException("illegal en passant file")
       }
     }
-    val x = l[4].toIntOrNull(10)
-    if (x == null) throw IllegalArgumentException("illegal fifty moves token")
+    val x = l[4].toIntOrNull(10) ?: throw IllegalArgumentException("illegal fifty moves token")
     fiftyMoveRule = 100 - x
     materialScore = computeMaterialScore()
     hc = computeHashCode()
