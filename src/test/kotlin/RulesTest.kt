@@ -2,6 +2,7 @@ import kotlin.test.assertTrue
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import org.junit.Test
+import kotlin.math.min
 
 import com.github.antma.flickering_chess.Position
 import com.github.antma.flickering_chess.Engine
@@ -103,5 +104,15 @@ class RulesTest {
     p.doMoves("g1f3 g8f6 c2c4 b8c6 b1c3 e7e6 e2e3 d7d5 d2d4 f6g5 c4d5 e6d5 f1e2 d8f6")
     p.doMoves("e1g1 f8d6 a2a3 g5f3 e2f3 c8f5 b2b4 a7a6 d1e2")
     //e8d7
+  }
+  @Test
+  fun testEngine4() {
+    val p = Position("r3kb1r/1pp4p/p4q2/3P3P/6Q1/1PP3P1/P3RP2/R5K1 b - - 4")
+    val level = 4
+    val engine = Engine(min(16, 6 + level))
+    engine.setParams(max_depth = 2 * level, max_nodes = 5 shl level, level > 3)
+    val m = engine.rootSearch(p)
+    System.err.println(m.second)
+    assertTrue(m.first != null)
   }
 }

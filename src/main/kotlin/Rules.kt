@@ -131,13 +131,15 @@ class Position(position_fen: String = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKB
     if (color == "w") side = 1
     else if (color == "b") side = -1
     else throw IllegalArgumentException("illegal color")
-    for (c in l[2]) {
-      castle = castle or when(c) {
-        'Q' -> 1
-        'K' -> 2
-        'q' -> 4
-        'k' -> 8
-        else -> throw IllegalArgumentException("illegal castling flag")
+    if (l[2] != "-") {
+      for (c in l[2]) {
+        castle = castle or when(c) {
+          'Q' -> 1
+          'K' -> 2
+          'q' -> 4
+          'k' -> 8
+          else -> throw IllegalArgumentException("illegal castling flag")
+        }
       }
     }
     val enPassant = l[3]
