@@ -1,4 +1,5 @@
 package com.github.antma.flickering_chess
+import kotlin.text.split
 import kotlin.math.abs
 import kotlin.math.sign
 import kotlin.math.min
@@ -66,13 +67,13 @@ class UndoMove(val move: Move, val piece_from: Int, val piece_to: Int, val castl
 private fun manhattanDistance(x: Int, y: Int): Int =
   max(abs( (x and 15) - (y and 15)), abs((x shr 4) - (y shr 4)))
 
-class Position {
+class Position(position_fen: String = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0") {
   val board = IntArray(128)
   var side = 1
-  private var castle = 15
+  private var castle = 0
   private var jump = -1
-  private var wk = 0x04
-  private var bk = 0x74
+  private var wk = -1
+  private var bk = -1
   private var materialScore = 0
   private var hc = 0L
   private var fiftyMoveRule = 100
@@ -83,29 +84,78 @@ class Position {
     }
   }
   init {
-    for (i in 0 .. 7) {
-      board[i + 16] = PAWN
-      board[i + 16 * 6] = -PAWN
+    val l = position_fen.split(' ')
+    if (l.size < 5) throw IllegalArgumentException("not enough fen tokens")
+    val t = l[0].split('/')
+    if (t.size != 8) throw IllegalArgumentException("illegal number of ranks")
+    for ( (i, v) in t.withIndex()) {
+      val rank = 7 - i
+      val off = rank * 16
+      var file = 0
+      fun put(p: Int) {
+        if (file > 7) throw IllegalArgumentException("too many files in rank $rank")
+        board[off+file] = p
+        file++
+      }
+      for (c in v) {
+        when(c) {
+          'k' -> {
+            if (bk >= 0) throw IllegalArgumentException("too many black kings")
+            bk = off + file
+            put(-KING)
+          }
+          'q' -> put(-QUEEN)
+          'r' -> put(-ROOK)
+          'b' -> put(-BISHOP)
+          'n' -> put(-KNIGHT)
+          'p' -> put(-PAWN)
+          'K' -> {
+            if (wk >= 0) throw IllegalArgumentException("too many white kings")
+            wk = off + file
+            put(KING)
+          }
+          'Q' -> put(QUEEN)
+          'R' -> put(ROOK)
+          'B' -> put(BISHOP)
+          'N' -> put(KNIGHT)
+          'P' -> put(PAWN)
+          in '1' .. '8' -> file += c.code - 48
+          else -> throw IllegalArgumentException("illegal piece characted")
+        }
+      }
+      if (file != 8) throw IllegalArgumentException("illegal file $file in rank $rank")
     }
-    board[0] = ROOK
-    board[7] = ROOK
-    board[0x70] = -ROOK
-    board[0x77] = -ROOK
-    board[1] = KNIGHT
-    board[6] = KNIGHT
-    board[0x71] = -KNIGHT
-    board[0x76] = -KNIGHT
-    board[2] = BISHOP
-    board[5] = BISHOP
-    board[0x72] = -BISHOP
-    board[0x75] = -BISHOP
-    board[3] = QUEEN
-    board[0x73] = -QUEEN
-    board[4] = KING
-    board[0x74] = -KING
-    for (i in listOf(0, 1, 6, 7)) for (j in 0 until 8) {
-      hcUpdate(i * 16 + j)
+    if (wk < 0) throw IllegalArgumentException("white king is absent")
+    if (bk < 0) throw IllegalArgumentException("black king is absent")
+    val color = l[1]
+    if (color == "w") side = 1
+    else if (color == "b") side = -1
+    else throw IllegalArgumentException("illegal color")
+    for (c in l[2]) {
+      castle = castle or when(c) {
+        'Q' -> 1
+        'K' -> 2
+        'q' -> 4
+        'k' -> 8
+        else -> throw IllegalArgumentException("illegal castling flag")
+      }
     }
+    val enPassant = l[3]
+    if (enPassant == "-") jump = -1
+    else if (enPassant.length != 2) throw IllegalArgumentException("illegal en passant token length")
+    else {
+      jump = enPassant[0].code - 97
+      if (jump !in 0 until 8) throw IllegalArgumentException("illegal en passant rank")
+      val enPassantFile = enPassant[1]
+      if ((side > 0 && enPassantFile != '6') || (side < 0 && enPassantFile != '3')) {
+        throw IllegalArgumentException("illegal en passant file")
+      }
+    }
+    val x = l[4].toIntOrNull(10)
+    if (x == null) throw IllegalArgumentException("illegal fifty moves token")
+    fiftyMoveRule = 100 - x
+    materialScore = computeMaterialScore()
+    hc = computeHashCode()
   }
   fun fen(): String = StringBuilder().run {
     for (i in (0 until 8).reversed()) {
@@ -547,20 +597,32 @@ class Position {
     }
     return u
   }
-  fun validate(): String? {
+  private fun computeMaterialScore(): Int {
     var ms = 0
-    var h = 0L
     for (i in 0 until 8) for (j in 0 until 8) {
       val k = 16 * i + j
       val p = board[k]
       if (p != 0) {
         val q = abs(p)
         if (q != KING) ms += p.sign * tbl_material_score_delta[q]
-        h = h xor Zobrist.a[(KING + p) * 128 + k]
       }
     }
+    return ms
+  }
+  private fun computeHashCode(): Long {
+    var h = 0L
+    for (i in 0 until 8) for (j in 0 until 8) {
+      val k = 16 * i + j
+      val p = board[k]
+      if (p != 0) h = h xor Zobrist.a[(KING + p) * 128 + k]
+    }
+    return h
+  }
+  fun validate(): String? {
+    val ms = computeMaterialScore()
     if (materialScore != ms) return "Material Score expected - $ms, field value - $materialScore"
-    if (hc != h) return "hc expected - ${h}, field value - $hc"
+    val h = computeHashCode()
+    if (hc != h) return "hc expected - $h, field value - $hc"
     return null
   }
   fun isLegalPromotion(san: String): Boolean {
