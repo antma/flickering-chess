@@ -61,12 +61,14 @@ class RulesTest {
     p.doMoves("g6f4 f7g6 h5h3 h6h5 e1e2 h7h8 e2c2 g6f7 f4g5 f7f8 c2g6 c8d7 e5d6 d7d6 d1d6 c6e8")
     p.doMoves("d6e6 a7d7 h3d3 c5c4 d3c5 e8d6 c5d6 d7e6 g6e6 c4c3 b2c3 g7g6 c3c4 f8g7 e6f7 g7h6")
     p.doMoves("h2h4 g8f6 f7f6 h8e8 g5f7 e8e1 g1h2 e1h1 h2h1")
-    val e = Engine(16)
+    val e = Engine(6)
     e.setParams(6, Int.MAX_VALUE, true)
     val m = e.rootSearch(p)
     val v = p.validate()
     if (v != null) assertTrue(false, "validation failed with message '${v}' after root search")
-    assertTrue(p.doSANMove(m.first.san()) != null)
+    val move = m.first
+    assertTrue(move != null)
+    assertTrue(p.doSANMove(move.san()) != null)
   }
   @Test
   fun testUndoCastling() {

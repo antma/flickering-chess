@@ -138,6 +138,22 @@ class Position {
       put(if (i == 0) ' ' else '/')
     }
     append(if (side > 0) 'w' else 'b')
+    append(' ')
+    if (castle == 0) append('-')
+    else {
+      if ((castle and 2) != 0) append('K')
+      if ((castle and 1) != 0) append('Q')
+      if ((castle and 8) != 0) append('k')
+      if ((castle and 4) != 0) append('q')
+    }
+    append(' ')
+    if (jump < 0) append('-')
+    else {
+      append(((jump + 97)).toChar())
+      append(if (side > 0) '6' else '3')
+    }
+    append(' ')
+    append(100 - fiftyMoveRule)
     toString()
   }
   fun hash(): Long {
@@ -776,7 +792,7 @@ class Engine(bits: Int) {
     }
     return bestScore
   }
-  fun rootSearch(pos: Position): Triple<Move, Int, String> {
+  fun rootSearch(pos: Position): Pair<Move?, String> {
     nodes = 0
     var ev = 0
     val h = pos.hash()
@@ -796,7 +812,8 @@ class Engine(bits: Int) {
       if (nodes >= maxNodes) break
     }
     val p = cache.probe(h)
-    require(p != null)
-    return Triple(p.move!!, ev, sb.toString())
+    val s = sb.toString()
+    if (p == null) return null to s
+    return p.move to s
   }
 }
