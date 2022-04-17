@@ -596,7 +596,7 @@ enum class GameResult {
 }
 
 class Game {
-  private val moves = ArrayList<Move>()
+  private val halfMoves = ArrayList<Move>()
   private val h = ArrayList<Long>()
   val pos = Position()
   init {
@@ -615,10 +615,11 @@ class Game {
   }
   fun doSANMove(san: String): Boolean {
     val p = pos.doSANMove(san) ?: return false
-    moves.add(p.move)
+    halfMoves.add(p.move)
     h.add(pos.hash())
     return true
   }
+  fun countMoves(): Int = (halfMoves.size + 1) / 2
 }
 
 const val MATE_SCORE: Int = 30_000
