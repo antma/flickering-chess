@@ -12,3 +12,7 @@ Requires JAVA 8
 How to run
 ----------
 java -jar flickering-chess.jar
+
+Play online
+-----------
+[Yandex Games](https://yandex.com/games/?app=187709)
